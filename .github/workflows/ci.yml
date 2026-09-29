@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recall-rail-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Linux package and policy contracts
+    runs-on: ubuntu-latest
+    container:
+      image: swift:6.2-noble
+    steps:
+      - name: Check out exact triggering commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Record tested commit
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE" && git rev-parse HEAD
+      - name: Test RecallRailKit
+        run: swift test --package-path Packages/RecallRailKit -Xswiftc -warnings-as-errors
+      - name: Validate project contract
+        run: bash scripts/check_project_contract.sh
+      - name: Enforce zero-network architecture
+        run: bash scripts/check_zero_network.sh
+      - name: Enforce native-only implementation
+        run: bash scripts/check_native_only.sh
+      - name: Keep signing material out of git
+        run: |
+          set -euo pipefail
+          for path in fake.p8 fake.mobileprovision; do
+            touch "$path"
+            git check-ignore -q "$path" || { echo "Signing ignore contract failed: $path"; exit 1; }
+            rm "$path"
+          done
+          echo "Signing material ignore contract: PASS"
+
+  ios-native:
+    name: Pinned iOS 26 build, test, and iPhone metadata
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out exact triggering commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Select exact pinned Xcode
+        run: |
+          set -euo pipefail
+          required_version="Xcode 26.0.1"
+          required_build="17A400"
+          selected=""
+          for app in /Applications/Xcode_26.0.1.app /Applications/Xcode_26.0.app /Applications/Xcode.app; do
+            [ -d "$app" ] || continue
+            developer="$app/Contents/Developer"
+            version=$(DEVELOPER_DIR="$developer" xcodebuild -version | head -1)
+            build=$(DEVELOPER_DIR="$developer" xcodebuild -version | grep -i 'build version' | awk '{print $3}')
+            if [ "$version" = "$required_version" ] && [ "$build" = "$required_build" ]; then
+              selected="$developer"
+              break
+            fi
+          done
+          [ -n "$selected" ] || { echo "::error::Required $required_version ($required_build) is unavailable"; exit 1; }
+          sudo xcode-select -s "$selected"
+          xcodebuild -version
+          [ "$(xcrun --sdk iphoneos --show-sdk-version)" = "26.0" ] || { echo "::error::iPhoneOS SDK 26.0 is unavailable"; exit 1; }
+          [ "$(git rev-parse HEAD)" = "$TARGET_SHA" ] || { echo "::error::Checkout SHA mismatch"; exit 1; }
+      - name: Run native Swift package tests
+        run: swift test --package-path Packages/RecallRailKit -Xswiftc -warnings-as-errors
+      - name: Run policy contracts
+        run: |
+          bash scripts/check_project_contract.sh
+          bash scripts/check_zero_network.sh
+          bash scripts/check_native_only.sh
+      - name: Test native iPhone simulator app
+        run: |
+          set -euo pipefail
+          xcodebuild -project RecallRail.xcodeproj \
+            -scheme RecallRail \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath DerivedData \
+            test
+      - name: Build native iPhone simulator app
+        run: |
+          set -euo pipefail
+          xcodebuild -project RecallRail.xcodeproj \
+            -scheme RecallRail \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath DerivedData \
+            build
+      - name: Verify built bundle and iPhone-only metadata
+        run: |
+          set -euo pipefail
+          app=$(find DerivedData/Build/Products -maxdepth 2 -name RecallRail.app -type d -print -quit)
+          [ -n "$app" ] || { echo "::error::Built RecallRail.app not found"; exit 1; }
+          plist="$app/Info.plist"
+          bundle_id=$(plutil -extract CFBundleIdentifier raw -o - "$plist")
+          [ "$bundle_id" = "com.infinityball.recallrail" ] || { echo "::error::Bundle id is $bundle_id"; exit 1; }
+          family=$(plutil -extract UIDeviceFamily json -o - "$plist")
+          [ "$family" = '[1]' ] || { echo "::error::UIDeviceFamily is $family, expected [1]"; exit 1; }
+          [ -f "$app/PrivacyInfo.xcprivacy" ] || { echo "::error::PrivacyInfo.xcprivacy is not embedded"; exit 1; }
+          echo "Built bundle: $bundle_id; UIDeviceFamily=$family; privacy manifest embedded: PASS"
