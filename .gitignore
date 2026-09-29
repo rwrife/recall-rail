@@ -1,0 +1,29 @@
+# Xcode
+DerivedData/
+build/
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+xcuserdata/
+*.xcuserstate
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Local tooling and credentials
+.env
+*.p8
+*.mobileprovision
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local databases and exports
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+exports/
