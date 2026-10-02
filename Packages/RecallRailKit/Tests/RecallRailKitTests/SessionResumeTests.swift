@@ -52,16 +52,47 @@ final class SessionResumeTests: XCTestCase {
 
     func testSessionRoundTripsThroughCodable() throws {
         // The persistence layer (issue #3) relies on the session encoding
-        // completely; assert the whole value survives JSON.
+        // completely; assert the whole value survives JSON, revealed flag
+        // included.
         let order = [StableID(), StableID(), StableID()]
         var session = StudySession(
             deckID: StableID(), cardOrder: order, cursor: 2, mode: .spoken,
+            isRevealed: true,
             startedAt: Fixtures.now, monotonicStartNanos: 7, monotonicCheckpointNanos: 11
         )
         session.interrupt(at: Fixtures.now.addingTimeInterval(30), monotonicNanos: 40)
         let data = try JSONEncoder().encode(session)
         let decoded = try JSONDecoder().decode(StudySession.self, from: data)
         XCTAssertEqual(decoded, session)
+        XCTAssertTrue(decoded.isRevealed)
+    }
+
+    func testRevealResetOnAdvanceSurvivesResume() {
+        let order = [StableID(), StableID()]
+        var session = StudySession(
+            deckID: StableID(), cardOrder: order, cursor: 0, mode: .tapReveal,
+            isRevealed: true, startedAt: Fixtures.now,
+            monotonicStartNanos: 0, monotonicCheckpointNanos: 0
+        )
+        session.advance()
+        XCTAssertFalse(session.isRevealed, "the next card starts unrevealed")
+        session.isRevealed = true
+        session.interrupt(at: Fixtures.now, monotonicNanos: 5)
+        session.resume(at: Fixtures.now, monotonicNanos: 6)
+        XCTAssertTrue(session.isRevealed, "resume restores what the learner was looking at")
+    }
+
+    func testMonotonicElapsedClampsAfterReboot() {
+        // A reboot restarts the monotonic counter, so the post-reboot
+        // reading can be SMALLER than a stored anchor. Elapsed time must
+        // clamp to zero (unknown), never go negative or produce a bogus
+        // near-UInt64::max difference.
+        let anchor: UInt64 = 9_000_000_000_000  // 9h of uptime before reboot
+        XCTAssertEqual(StudySession.elapsedNanos(from: anchor, to: 500), 0,
+                       "counter restart below the anchor must read as zero elapsed")
+        XCTAssertEqual(StudySession.elapsedNanos(from: anchor, to: anchor), 0)
+        XCTAssertEqual(StudySession.elapsedNanos(from: anchor, to: anchor + 1_000_000),
+                       1_000_000, "normal forward reads are exact")
     }
 
     func testAttemptRoundTripsThroughCodable() throws {

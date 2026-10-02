@@ -30,8 +30,14 @@ jobs:
           persist-credentials: false
       - name: Record tested commit
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE" && git rev-parse HEAD
+      - name: Install SQLite headers for GRDB
+        # GRDB 7 links SQLite through a systemLibrary target; the swift
+        # container image does not ship the C headers.
+        run: apt-get update -qq && apt-get install -y -qq libsqlite3-dev
       - name: Test RecallRailKit
         run: swift test --package-path Packages/RecallRailKit -Xswiftc -warnings-as-errors
+      - name: Test RecallStore
+        run: swift test --package-path Packages/RecallStore -Xswiftc -warnings-as-errors
       - name: Validate project contract
         run: bash scripts/check_project_contract.sh
       - name: Enforce zero-network architecture
@@ -83,7 +89,11 @@ jobs:
           [ "$(xcrun --sdk iphoneos --show-sdk-version)" = "26.0" ] || { echo "::error::iPhoneOS SDK 26.0 is unavailable"; exit 1; }
           [ "$(git rev-parse HEAD)" = "$TARGET_SHA" ] || { echo "::error::Checkout SHA mismatch"; exit 1; }
       - name: Run native Swift package tests
-        run: swift test --package-path Packages/RecallRailKit -Xswiftc -warnings-as-errors
+        # GRDB builds against the macOS SDK's SQLite on Apple runners; no
+        # apt step (that is the Linux container's need only).
+        run: |
+          swift test --package-path Packages/RecallRailKit -Xswiftc -warnings-as-errors
+          swift test --package-path Packages/RecallStore -Xswiftc -warnings-as-errors
       - name: Run policy contracts
         run: |
           bash scripts/check_project_contract.sh
