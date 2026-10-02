@@ -119,6 +119,10 @@ public struct StudySession: Codable, Equatable, Identifiable, Sendable {
     public var cursor: Int
     public let mode: PracticeMode
     public var status: Status
+    /// Whether the answer for the current card has been revealed. Persisted
+    /// with the session so a relaunch restores exactly what the learner was
+    /// looking at — neither re-hiding the answer nor revealing it early.
+    public var isRevealed: Bool
     public let startedAt: Date
     /// Set when the session was interrupted or finished.
     public var endedAt: Date?
@@ -134,6 +138,7 @@ public struct StudySession: Codable, Equatable, Identifiable, Sendable {
         cursor: Int = 0,
         mode: PracticeMode,
         status: Status = .active,
+        isRevealed: Bool = false,
         startedAt: Date,
         endedAt: Date? = nil,
         monotonicStartNanos: UInt64,
@@ -145,6 +150,7 @@ public struct StudySession: Codable, Equatable, Identifiable, Sendable {
         self.cursor = cursor
         self.mode = mode
         self.status = status
+        self.isRevealed = isRevealed
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.monotonicStartNanos = monotonicStartNanos
@@ -175,10 +181,21 @@ public struct StudySession: Codable, Equatable, Identifiable, Sendable {
         _ = instant
     }
 
-    /// Advance to the next card after a durable attempt was recorded.
+    /// Real elapsed nanoseconds between a monotonic anchor and `now`,
+    /// clamped to zero. A device reboot restarts the monotonic counter, so
+    /// a post-reboot reading can be numerically smaller than a stored
+    /// anchor; honest elapsed time is then unknown — never negative and
+    /// never a bogus full-counter difference.
+    public static func elapsedNanos(from anchor: UInt64, to now: UInt64) -> UInt64 {
+        now >= anchor ? now - anchor : 0
+    }
+
+    /// Advance to the next card after a durable attempt was recorded. The
+    /// next card starts unrevealed — the learner must reveal it themselves.
     public mutating func advance() {
         guard status == .active else { return }
         cursor += 1
+        isRevealed = false
         if cursor >= cardOrder.count {
             status = .completed
         }

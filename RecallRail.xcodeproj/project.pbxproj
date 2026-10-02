@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		AA10000000000000000000B0 /* RecallRailKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA10000000000000000000AF /* RecallRailKit */; };
+		AA10000000000000000000D0 /* RecallStore in Frameworks */ = {isa = PBXBuildFile; productRef = AA10000000000000000000D1 /* RecallStore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,6 +54,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA10000000000000000000B0 /* RecallRailKit in Frameworks */,
+				AA10000000000000000000D0 /* RecallStore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -106,6 +108,7 @@
 			name = RecallRail;
 			packageProductDependencies = (
 				AA10000000000000000000AF /* RecallRailKit */,
+				AA10000000000000000000D1 /* RecallStore */,
 			);
 			productName = RecallRail;
 			productReference = AA10000000000000000000B1 /* RecallRail.app */;
@@ -162,6 +165,7 @@
 			mainGroup = AA10000000000000000000AD;
 			packageReferences = (
 				AA10000000000000000000AE /* XCLocalSwiftPackageReference "Packages/RecallRailKit" */,
+				AA10000000000000000000D2 /* XCLocalSwiftPackageReference "Packages/RecallStore" */,
 			);
 			productRefGroup = AA10000000000000000000B2 /* Products */;
 			projectDirPath = "";
@@ -393,12 +397,20 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/RecallRailKit;
 		};
+		AA10000000000000000000D2 /* XCLocalSwiftPackageReference "Packages/RecallStore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/RecallStore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		AA10000000000000000000AF /* RecallRailKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = RecallRailKit;
+		};
+		AA10000000000000000000D1 /* RecallStore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RecallStore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
