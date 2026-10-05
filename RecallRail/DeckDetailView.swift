@@ -13,6 +13,8 @@ struct DeckDetailView: View {
     @State private var editingCard: Card?
     @State private var showingImport = false
     @State private var showingArchivedCards = false
+    @State private var deletingCard: Card?
+    @State private var confirmDelete = false
 
     private var deck: Deck? {
         library.decks.first { $0.id == deckID }
@@ -42,6 +44,12 @@ struct DeckDetailView: View {
                                     Label("Archive card", systemImage: "archivebox")
                                 }
                                 .tint(.brown)
+                                Button(role: .destructive) {
+                                    deletingCard = card
+                                    confirmDelete = true
+                                } label: {
+                                    Label("Delete card", systemImage: "trash")
+                                }
                             }
                     }
                     .onMove { source, destination in
@@ -61,6 +69,10 @@ struct DeckDetailView: View {
                                 Spacer()
                                 Button("Restore") {
                                     library.setCardArchived(card, archived: false)
+                                }
+                                Button("Delete", role: .destructive) {
+                                    deletingCard = card
+                                    confirmDelete = true
                                 }
                             }
                         }
@@ -86,6 +98,14 @@ struct DeckDetailView: View {
         }
         .sheet(isPresented: $showingImport) {
             CSVImportSheet(library: library, deckID: deckID)
+        }
+        .confirmationDialog("Delete card permanently?", isPresented: $confirmDelete) {
+            Button("Delete card", role: .destructive) {
+                if let deletingCard { _ = library.deleteCard(deletingCard) }
+                deletingCard = nil
+            }
+        } message: {
+            Text("Cards with recorded attempts cannot be deleted. Archive to preserve history.")
         }
     }
 }

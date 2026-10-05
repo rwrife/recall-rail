@@ -251,6 +251,15 @@ final class CSVCardImportGoldenTests: XCTestCase {
         XCTAssertEqual(doc.lineEnding, .crlf)
     }
 
+    func testCommaOnlyRecordCannotSilentlyPassAllOrNothing() {
+        let preview = CSVCardImport.preview(text: "prompt,answer\n,\nGood,answer\n",
+                                            existingCards: [])
+        XCTAssertEqual(preview.additions.map(\.prompt), ["Good"])
+        XCTAssertEqual(Set(preview.errors.compactMap(\.field)), ["prompt", "answer"])
+        XCTAssertFalse(preview.canCommitAllOrNothing)
+        XCTAssertTrue(preview.canCommitValidRowsOnly)
+    }
+
     func testNonUTF8DataIsDocumentError() {
         let broken = Data([0xFF, 0xFE, 0x00, 0x41]) // not valid UTF-8
         let preview = CSVCardImport.preview(data: broken, existingCards: [])

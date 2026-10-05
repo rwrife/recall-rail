@@ -1,4 +1,6 @@
 import XCTest
+import RecallRailKit
+import RecallStore
 @testable import RecallRail
 
 final class RecallRailTests: XCTestCase {
@@ -15,6 +17,33 @@ final class RecallRailTests: XCTestCase {
         XCTAssertTrue(ready.databaseAvailable)
         let broken = ContentView(productName: "Recall Rail", databaseAvailable: false)
         XCTAssertFalse(broken.databaseAvailable)
+    }
+}
+
+@MainActor
+final class ImportSafetyTests: XCTestCase {
+    func testValidRowsOnlyNeverPartiallyWritesStoreRejectedRowsOrDuplicatesOnRetry() throws {
+        let repo = RecallRepository(db: try RecallDatabase.openInMemory())
+        let now = Date(timeIntervalSince1970: 1_775_000_000)
+        let target = Deck(title: "Target", createdAt: now, updatedAt: now)
+        let other = Deck(title: "Other", createdAt: now, updatedAt: now)
+        try repo.saveDeck(target)
+        try repo.saveDeck(other)
+        let foreign = Card(deckID: other.id, prompt: "Foreign", answer: "A",
+                           createdAt: now, updatedAt: now)
+        try repo.saveCard(foreign)
+        let library = DeckLibrary(repo: repo)
+        let text = "id,prompt,answer\n\(foreign.id.rawValue),Foreign,A\n,New card,Good\n,Bad,\n"
+        let preview = CSVCardImport.preview(text: text, existingCards: [])
+        XCTAssertFalse(preview.canCommitAllOrNothing)
+        XCTAssertTrue(preview.canCommitValidRowsOnly)
+        for _ in 0..<2 {
+            let error = library.commit(preview: preview, deckID: target.id,
+                                       validRowsOnly: true)
+            XCTAssertNotNil(error)
+            XCTAssertTrue(try repo.cards(deckID: target.id).isEmpty,
+                          "a retryable rejection cannot leave already-committed additions")
+        }
     }
 }
 

@@ -161,12 +161,13 @@ struct CSVImportSheet: View {
         // Build the preview against the deck's CURRENT stored cards so
         // additions/updates/skips reflect reality at pick time; the store
         // re-validates again at commit.
-        preview = CSVCardImport.preview(data: data, existingCards: existingCards())
-    }
-
-    private func existingCards() -> [Card] {
-        guard let deck = library.decks.first(where: { $0.id == deckID }) else { return [] }
-        return library.cards(in: deck, matching: "")
+        do {
+            preview = CSVCardImport.preview(data: data,
+                                            existingCards: try library.importExistingCards(deckID: deckID))
+        } catch {
+            preview = nil
+            decodeError = "Could not read current cards: \(error)"
+        }
     }
 
     private func commit(preview: CSVCardImport.Preview, validRowsOnly: Bool) {

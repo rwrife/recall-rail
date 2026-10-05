@@ -8,6 +8,8 @@ struct DeckListView: View {
     @State private var showingNewDeck = false
     @State private var showingArchived = false
     @State private var editingDeck: Deck?
+    @State private var deletingDeck: Deck?
+    @State private var confirmDelete = false
 
     var body: some View {
         List {
@@ -28,6 +30,12 @@ struct DeckListView: View {
                         }
                         .tint(.brown)
                         Button("Edit", systemImage: "pencil") { editingDeck = deck }
+                        Button(role: .destructive) {
+                            deletingDeck = deck
+                            confirmDelete = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
                     }
                     .accessibilityIdentifier("deck-row.\(deck.id.rawValue)")
                 }
@@ -42,6 +50,10 @@ struct DeckListView: View {
                                 library.setDeckArchived(deck, archived: false)
                             }
                             .accessibilityIdentifier("deck.restore.\(deck.id.rawValue)")
+                            Button("Delete", role: .destructive) {
+                                deletingDeck = deck
+                                confirmDelete = true
+                            }
                         }
                     }
                 }
@@ -74,6 +86,14 @@ struct DeckListView: View {
         }
         .sheet(item: $editingDeck) { deck in
             DeckEditorSheet(deck: deck) { draft in library.save(draft: draft) }
+        }
+        .confirmationDialog("Delete deck permanently?", isPresented: $confirmDelete) {
+            Button("Delete deck", role: .destructive) {
+                if let deletingDeck { _ = library.deleteDeck(deletingDeck) }
+                deletingDeck = nil
+            }
+        } message: {
+            Text("Only decks without recorded study evidence can be deleted. Archive to preserve history.")
         }
         .onAppear { library.reload() }
     }

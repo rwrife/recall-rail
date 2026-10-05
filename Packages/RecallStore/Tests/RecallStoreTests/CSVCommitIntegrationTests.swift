@@ -133,6 +133,24 @@ final class CSVCommitIntegrationTests: XCTestCase {
         XCTAssertNotNil(schedule, "the evidenced card's schedule must be untouched")
     }
 
+    func testArchivedCardImportPreservesArchivedState() throws {
+        let (repo, deck) = try makeRepo()
+        let archived = Card(deckID: deck.id, prompt: "Archived", answer: "A",
+                            sortOrder: 0, isArchived: true,
+                            createdAt: Self.now, updatedAt: Self.now)
+        try repo.saveCard(archived)
+        let existing = try repo.cards(deckID: deck.id, includeArchived: true)
+        let preview = CSVCardImport.preview(text: "id,prompt,answer,sort\n\(archived.id.rawValue),Updated,A,0\n",
+                                            existingCards: existing)
+        XCTAssertEqual(preview.updates.first?.existingID, archived.id)
+        let materialized = CSVCardImport.cards(from: preview, deckID: deck.id,
+                                               existingCards: existing, at: Self.now)
+        XCTAssertEqual(materialized.first?.isArchived, true)
+        try repo.importCards(materialized)
+        XCTAssertTrue(try repo.cards(deckID: deck.id).isEmpty)
+        XCTAssertEqual(try repo.card(id: archived.id)?.prompt, "Updated")
+    }
+
     func testAtomicReorderRejectsPartialOrForeignLists() throws {
         let (repo, deck) = try makeRepo()
         let other = Deck(title: "Other", createdAt: Self.now, updatedAt: Self.now)

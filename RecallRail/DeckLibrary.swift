@@ -60,6 +60,10 @@ final class DeckLibrary {
         }.sorted { $0.sortOrder < $1.sortOrder }
     }
 
+    func importExistingCards(deckID: StableID) throws -> [Card] {
+        try repo.cards(deckID: deckID, includeArchived: true)
+    }
+
     func archivedCards(in deck: Deck) -> [Card] {
         ((try? repo.cards(deckID: deck.id, includeArchived: true)) ?? [])
             .filter(\.isArchived)
@@ -98,6 +102,28 @@ final class DeckLibrary {
             return true
         } catch {
             lastError = String(describing: error)
+            return false
+        }
+    }
+
+    func deleteDeck(_ deck: Deck) -> Bool {
+        do {
+            try repo.deleteDeck(id: deck.id)
+            reload()
+            return true
+        } catch {
+            lastError = "Cannot delete deck with recorded study evidence. Archive it instead. \(error)"
+            return false
+        }
+    }
+
+    func deleteCard(_ card: Card) -> Bool {
+        do {
+            try repo.deleteCard(id: card.id)
+            lastError = nil
+            return true
+        } catch {
+            lastError = "Cannot delete card with recorded study evidence. Archive it instead. \(error)"
             return false
         }
     }
@@ -146,13 +172,21 @@ final class DeckLibrary {
               preview.documentIsValid, !preview.proposedRows.isEmpty else {
             return "Preview has errors or no importable rows; nothing was written."
         }
-        let existing = (try? repo.cards(deckID: deckID)) ?? []
+        let existing: [Card]
+        do {
+            existing = try importExistingCards(deckID: deckID)
+        } catch {
+            return "Could not read current cards; nothing was written: \(error)"
+        }
         let materialized = CSVCardImport.cards(from: preview, deckID: deckID,
                                                existingCards: existing, at: clock.now())
         guard !materialized.isEmpty else { return nil } // nothing to write
         do {
-            let outcome = try repo.importCards(materialized,
-                                               mode: validRowsOnly ? .validRowsOnly : .allOrNothing)
+            // Preview already excluded invalid file rows for an explicit
+            // valid-rows-only choice. Keep the remaining batch atomic at
+            // the database boundary: a new cross-deck collision must not
+            // commit other cards and leave a retryable stale preview.
+            let outcome = try repo.importCards(materialized, mode: .allOrNothing)
             if outcome.rejected.isEmpty {
                 lastError = nil
                 return nil // success

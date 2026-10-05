@@ -234,9 +234,11 @@ public enum CSVCardImport {
                 guard let index, index < row.fields.count else { return "" }
                 return row.fields[index].trimmingCharacters(in: .whitespacesAndNewlines)
             }
-            // A record whose every field is whitespace-only (e.g. ",,")
-            // is a blank line, not a card.
-            if row.fields.allSatisfy({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+            // Only a genuinely empty one-field record is ignorable.
+            // Comma-only records contain explicit empty cells and must be
+            // reported as missing prompt/answer, not silently skipped.
+            if row.fields.count == 1,
+               row.fields[0].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 blankLines += 1
                 continue
             }

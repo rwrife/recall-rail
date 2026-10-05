@@ -80,7 +80,7 @@ Cards in one selected deck use plain UTF-8 CSV following RFC 4180 quoting:
 - **Tags:** semicolon-separated within the cell (`exam;ch1`), trimmed, duplicates removed.
 - **Stable IDs:** the optional `id` column carries the card's UUID. An export includes IDs, so edit-then-reimport updates matching cards in place (unchanged rows are skipped, changed rows are updates) instead of duplicating them. An `id` that is not a valid UUID, or repeated within the file, is an error. Cards can never be re-parented to another deck through import.
 - **Sort order:** the optional `sort` column sets stable order; missing or duplicate values fall back to sequential row order with a warning.
-- **Preview before commit:** the import screen lists additions, updates, skipped-unchanged rows, warnings, and errors — nothing is written until the user commits. Commit is all-or-nothing by default; "valid rows only" is available only as an explicit user choice and still lists every excluded row.
+- **Preview before commit:** the import screen lists additions, updates, skipped-unchanged rows, warnings, and errors — nothing is written until the user commits. Truly empty lines may be skipped; comma-only records are malformed, not blank. Commit is all-or-nothing by default; "valid rows only" is available only as an explicit user choice and still lists every excluded file row. The remaining valid rows commit together or not at all if database revalidation rejects any card (for example a cross-deck ID).
 
 ## Development quickstart
 
