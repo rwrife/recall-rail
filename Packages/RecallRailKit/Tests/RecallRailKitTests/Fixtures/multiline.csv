@@ -1,0 +1,8 @@
+prompt,answer,hint,source,tags,sort
+"First
+line
+break","Multi
+line
+answer",,,multiline,0
+Second,"Keeps ""quoted""
+newline inside",,,multiline,1

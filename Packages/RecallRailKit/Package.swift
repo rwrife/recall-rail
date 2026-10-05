@@ -12,6 +12,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "RecallRailKit"),
-        .testTarget(name: "RecallRailKitTests", dependencies: ["RecallRailKit"]),
+        .testTarget(
+            name: "RecallRailKitTests",
+            dependencies: ["RecallRailKit"],
+            // Golden CSV fixtures load through #filePath, not as bundles.
+            exclude: ["Fixtures"]
+        ),
     ]
 )

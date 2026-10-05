@@ -11,21 +11,34 @@ struct RecallRailApp: App {
     /// and no local storage means no function.
     let database: RecallRepository?
     let databaseFailure: String?
+    /// One library per process: it holds the observable deck list and the
+    /// write-through repository. Constructing it inside `body` would reset
+    /// browsing state on every render.
+    let library: DeckLibrary?
 
     init() {
         do {
-            database = try AppDatabase.openShared()
+            let repo = try AppDatabase.openShared()
+            database = repo
+            library = DeckLibrary(repo: repo)
             databaseFailure = nil
         } catch {
             database = nil
+            library = nil
             databaseFailure = String(describing: error)
         }
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView(productName: RecallRailKit.productName,
-                        databaseAvailable: database != nil)
+            if let library {
+                ContentView(productName: RecallRailKit.productName,
+                            databaseAvailable: true,
+                            library: library)
+            } else {
+                ContentView(productName: RecallRailKit.productName,
+                            databaseAvailable: false)
+            }
         }
     }
 }

@@ -1,0 +1,5 @@
+id,prompt,answer,sort
+,,X,0
+not-a-uuid,Bad id,Y,1
+,,both wrong,zz
+2A444444-4444-4444-4444-444444444444,OK row,Z,nope

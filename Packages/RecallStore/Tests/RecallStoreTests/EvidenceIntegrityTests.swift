@@ -219,8 +219,12 @@ final class EvidenceIntegrityTests: XCTestCase {
         XCTAssertEqual(try repo.card(id: evidenced.id).flatMap { $0.deckID }, deckA.id,
                        "evidenced card stays in its recorded deck")
 
-        // The same move for an evidenced card via import must also fail.
-        XCTAssertThrowsError(try repo.importCards([moved], mode: .allOrNothing))
+        // Import prevalidates cross-deck IDs and returns rejected rows
+        // without writes, rather than letting the trigger throw mid-batch.
+        let rejected = try repo.importCards([moved], mode: .allOrNothing)
+        XCTAssertEqual(rejected.rejected.count, 1)
+        XCTAssertTrue(rejected.committed.isEmpty)
+        XCTAssertEqual(try repo.card(id: evidenced.id)?.deckID, deckA.id)
 
         // Unevidenced cards still move.
         let movedFresh = Card(id: fresh.id, deckID: deckB.id, prompt: fresh.prompt,
