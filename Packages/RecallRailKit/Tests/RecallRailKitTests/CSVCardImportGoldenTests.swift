@@ -43,8 +43,11 @@ final class CSVCardImportGoldenTests: XCTestCase {
     }
 
     func testBOMIsStrippedAndReported() throws {
-        // Foundation may strip a byte BOM during Data -> String decoding.
-        let doc = CSVDocument(text: "\u{FEFF}" + (try Self.fixtureText("bom_crlf.csv")))
+        // Foundation differs by platform on whether decoding keeps the fixture's BOM.
+        // Supply exactly one marker so this tests CSVDocument, not Foundation decoding.
+        let fixture = try Self.fixtureText("bom_crlf.csv")
+        let text = fixture.hasPrefix("\u{FEFF}") ? fixture : "\u{FEFF}" + fixture
+        let doc = CSVDocument(text: text)
         XCTAssertTrue(doc.hasBOM)
         XCTAssertEqual(doc.rows.first?.fields.first, "prompt")
         XCTAssertEqual(doc.lineEnding, .crlf)
