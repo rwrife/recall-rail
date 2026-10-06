@@ -16,6 +16,7 @@ public struct PracticeSelection: Sendable {
     }
 
     public func order(cards: [Card], schedules: [StableID: ScheduleState], at instant: Date) throws -> [StableID] {
+        for schedule in schedules.values { try LeitnerScheduler().validate(schedule) }
         let needle = filter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let eligible = cards.filter { card in
             !card.isArchived && tags.isSubset(of: Set(card.tags))
@@ -37,5 +38,5 @@ public struct PracticeSelection: Sendable {
 }
 
 public enum PracticeError: Error, Equatable, Sendable {
-    case invalidOrder, emptyQueue, noCurrentCard, revealRequired, pendingRequired, staleSession
+    case invalidOrder, emptyQueue, noCurrentCard, revealRequired, pendingRequired, staleSession, missingScheduleEvidence
 }

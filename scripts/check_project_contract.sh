@@ -52,6 +52,14 @@ grep -q 'productName = RecallRailKit;' "$project" \
   || fail "RecallRailKit product dependency missing"
 grep -q 'SUPPORTS_MACCATALYST = NO;' "$project" \
   || fail "Mac Catalyst must be disabled"
+grep -q 'productType = "com.apple.product-type.bundle.ui-testing";' "$project" \
+  || fail "actual XCUITest target missing"
+grep -q 'TEST_TARGET_NAME = RecallRail;' "$project" \
+  || fail "XCUITest app target binding missing"
+grep -q 'BlueprintName="RecallRailUITests"' RecallRail.xcodeproj/xcshareddata/xcschemes/RecallRail.xcscheme \
+  || fail "shared scheme must run XCUITest target"
+mic_count=$(grep -c 'INFOPLIST_KEY_NSMicrophoneUsageDescription =' "$project")
+[[ "$mic_count" -eq 2 ]] || fail "microphone purpose string required in both app configurations"
 
 privacy=RecallRail/PrivacyInfo.xcprivacy
 grep -A1 -q '<key>NSPrivacyTracking</key>' "$privacy" || fail "tracking declaration missing"

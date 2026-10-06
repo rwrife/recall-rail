@@ -4,6 +4,77 @@ import RecallRailKit
 @testable import RecallStore
 
 final class PracticeServiceTests: XCTestCase {
+    func testMissingScheduleWithExistingHistoryNeverInventsFreshState() throws {
+        let repo = RecallRepository(db: try RecallDatabase.openInMemory())
+        let deck = StoreFixtures.deck()
+        let card = StoreFixtures.card(deckID: deck.id)
+        try repo.saveDeck(deck)
+        try repo.saveCard(card)
+        try repo.recordAttempt(StoreFixtures.attempt(card: card, grade: .hard))
+        try repo.db.rawExecute("UPDATE card SET schedule = NULL WHERE id = ?", [card.id.rawValue])
+        XCTAssertThrowsError(try PracticeService.start(repo: repo, deckID: deck.id, selection: PracticeSelection(), mode: .tapReveal, at: StoreFixtures.now, nanos: 0))
+        XCTAssertNil(try repo.resumableSession(deckID: deck.id))
+        XCTAssertEqual(try repo.attempts(cardID: card.id).count, 1)
+    }
+
+    func testSessionOrderCannotBeRewrittenAndInvalidScheduleDoesNotStart() throws {
+        let repo = RecallRepository(db: try RecallDatabase.openInMemory())
+        let deck = StoreFixtures.deck()
+        let card = StoreFixtures.card(deckID: deck.id)
+        try repo.saveDeck(deck)
+        try repo.saveCard(card)
+        let run = try PracticeService.start(repo: repo, deckID: deck.id, selection: PracticeSelection(), mode: .tapReveal, at: StoreFixtures.now, nanos: 0)
+        var changed = run.session
+        changed.cardOrder = []
+        XCTAssertThrowsError(try repo.saveSession(changed))
+        XCTAssertEqual(try repo.session(id: run.session.id)?.cardOrder, [card.id])
+        let other = StoreFixtures.deck()
+        let bad = StoreFixtures.card(deckID: other.id)
+        try repo.saveDeck(other)
+        try repo.saveCard(bad, schedule: ScheduleState(box: 99, dueAt: StoreFixtures.now, algorithmVersion: 1))
+        XCTAssertThrowsError(try PracticeService.start(repo: repo, deckID: other.id, selection: PracticeSelection(), mode: .tapReveal, at: StoreFixtures.now, nanos: 0))
+        XCTAssertNil(try repo.resumableSession(deckID: other.id))
+    }
+
+    func testBackgroundExcludesGapButKeepsMeasuredForegroundAndCommitTime() throws {
+        let repo = RecallRepository(db: try RecallDatabase.openInMemory())
+        let deck = StoreFixtures.deck()
+        let card = StoreFixtures.card(deckID: deck.id)
+        try repo.saveDeck(deck)
+        try repo.saveCard(card)
+        var run = try PracticeService.start(repo: repo, deckID: deck.id, selection: PracticeSelection(), mode: .tapReveal, at: StoreFixtures.now, nanos: 10_000_000)
+        try run.reveal(repo: repo)
+        try run.interrupt(repo: repo, at: StoreFixtures.now, nanos: 30_000_000)
+        run = try PracticeService.resume(repo: repo, session: run.session, at: StoreFixtures.now, nanos: 1_000_000_000)
+        try run.grade(.hard, repo: repo, at: StoreFixtures.now, nanos: 1_005_000_000)
+        let committedAt = StoreFixtures.now.addingTimeInterval(40)
+        try run.next(repo: repo, nanos: 1_010_000_000, at: committedAt)
+        let attempt = try XCTUnwrap(repo.attempts(cardID: card.id).first)
+        XCTAssertEqual(attempt.elapsedMilliseconds, 25)
+        XCTAssertEqual(attempt.timestamp, committedAt)
+    }
+
+    func testCommitFailureRollsBackAndPendingCanRetryExactlyOnce() throws {
+        let repo = RecallRepository(db: try RecallDatabase.openInMemory())
+        let deck = StoreFixtures.deck()
+        let card = StoreFixtures.card(deckID: deck.id)
+        try repo.saveDeck(deck)
+        try repo.saveCard(card)
+        var run = try PracticeService.start(repo: repo, deckID: deck.id, selection: PracticeSelection(), mode: .tapReveal, at: StoreFixtures.now, nanos: 0)
+        try run.reveal(repo: repo)
+        try run.grade(.hard, repo: repo, at: StoreFixtures.now, nanos: 10)
+        try repo.db.rawExecute("CREATE TRIGGER fail_cursor BEFORE UPDATE ON session BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        XCTAssertThrowsError(try run.next(repo: repo, nanos: 20))
+        XCTAssertNotNil(run.pending)
+        XCTAssertEqual(try repo.session(id: run.session.id)?.cursor, 0)
+        XCTAssertNil(try repo.schedule(cardID: card.id))
+        XCTAssertTrue(try repo.attempts(cardID: card.id).isEmpty)
+        try repo.db.rawExecute("DROP TRIGGER fail_cursor")
+        try run.next(repo: repo, nanos: 30)
+        XCTAssertThrowsError(try run.next(repo: repo, nanos: 40))
+        XCTAssertEqual(try repo.attempts(cardID: card.id).count, 1)
+    }
+
     func testTransactionRejectsChangedOrderAndScheduleWithoutPartialWrites() throws {
         let repo = RecallRepository(db: try RecallDatabase.openInMemory())
         let deck = StoreFixtures.deck()

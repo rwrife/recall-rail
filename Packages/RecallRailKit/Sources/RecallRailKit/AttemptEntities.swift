@@ -54,10 +54,10 @@ public struct Attempt: Codable, Equatable, Identifiable, Sendable {
     public let deckID: StableID
     /// Wall-clock instant the grade was committed, from the injected clock.
     public let timestamp: Date
-    /// Monotonic nanosecond anchor at attempt start, for honest elapsed time
-    /// across interruptions and wall-clock changes.
+    /// Effective monotonic start anchor. Practice subtracts only measured
+    /// foreground duration from the grade-selection anchor, excluding gaps.
     public let monotonicStartNanos: UInt64
-    /// Monotonic nanosecond anchor at attempt commit.
+    /// Monotonic nanosecond anchor at grade selection (duration freezes then).
     public let monotonicEndNanos: UInt64
     public let elapsedMilliseconds: Int
     public let grade: Grade
@@ -130,6 +130,9 @@ public struct StudySession: Codable, Equatable, Identifiable, Sendable {
     /// Monotonic anchor at the most recent durable progress point, used to
     /// resume honest elapsed timing after interruptions.
     public var monotonicCheckpointNanos: UInt64
+    /// Measured foreground time for the current card at a clean interruption.
+    /// Optional for compatibility with sessions created before practice shipped.
+    public var currentCardElapsedNanos: UInt64?
 
     public init(
         id: StableID = StableID(),
@@ -155,6 +158,7 @@ public struct StudySession: Codable, Equatable, Identifiable, Sendable {
         self.endedAt = endedAt
         self.monotonicStartNanos = monotonicStartNanos
         self.monotonicCheckpointNanos = monotonicCheckpointNanos
+        self.currentCardElapsedNanos = nil
     }
 
     /// The card currently in front of the learner, if the session has one.
@@ -195,6 +199,7 @@ public struct StudySession: Codable, Equatable, Identifiable, Sendable {
     public mutating func advance() {
         guard status == .active else { return }
         cursor += 1
+        currentCardElapsedNanos = 0
         isRevealed = false
         if cursor >= cardOrder.count {
             status = .completed

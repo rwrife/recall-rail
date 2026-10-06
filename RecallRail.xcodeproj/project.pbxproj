@@ -155,7 +155,6 @@
 			);
 			fileSystemSynchronizedGroups = (
 				AA10000000000000000000C2 /* RecallRailTests */,
-				AA10000000000000000000E2 /* RecallRailUITests */,
 			);
 			name = RecallRailTests;
 			productName = RecallRailTests;
@@ -195,6 +194,10 @@
 				TargetAttributes = {
 					AA10000000000000000000A2 = {
 						CreatedOnToolsVersion = 26.0.1;
+					};
+					AA10000000000000000000E6 = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = AA10000000000000000000A2;
 					};
 					AA10000000000000000000C6 = {
 						CreatedOnToolsVersion = 26.0.1;

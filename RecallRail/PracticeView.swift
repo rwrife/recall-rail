@@ -65,9 +65,9 @@ struct PracticeView: View {
                     Button("Interrupt practice") { model.interrupt() }
                         .accessibilityIdentifier("practice.interrupt")
                     if let due = model.due {
-                        Text("\(due.kind.rawValue) · Box \(due.schedule.box) · Due \(due.schedule.dueAt.formatted())")
+                        Text(dueExplanation(due))
                     }
-                    if let mastery = model.mastery { Text("App evidence: \(mastery.rawValue)") }
+                    if let mastery = model.mastery { Text("App evidence: \(masteryLabel(mastery))") }
                 } else {
                     Text("Practice complete").accessibilityIdentifier("practice.complete")
                 }
@@ -86,6 +86,26 @@ struct PracticeView: View {
         }
         .onDisappear { model.interrupt() }
     }
+
+    private func dueExplanation(_ reason: DueReason) -> String {
+        let explanation: String
+        switch reason.kind {
+        case .neverSeen: explanation = "No recorded attempt yet."
+        case .dueElapsed: explanation = "Due because the scheduled instant has arrived."
+        case .notDue: explanation = "Not due yet; included by your all-cards selection."
+        }
+        return "\(explanation) Box \(reason.schedule.box); due \(reason.schedule.dueAt.formatted())."
+    }
+
+    private func masteryLabel(_ state: MasteryState) -> String {
+        switch state {
+        case .unseen: "Unseen"
+        case .insufficientEvidence: "Insufficient evidence"
+        case .due: "Due"
+        case .recentlyRecalled: "Recently recalled"
+        case .learning: "Learning"
+        }
+    }
 }
 
 struct AttemptLedgerView: View {
@@ -103,6 +123,8 @@ struct AttemptLedgerView: View {
                     Text("\(attempt.grade.rawValue) · \(attempt.elapsedMilliseconds) ms · \(attempt.mode.rawValue)")
                     Text(attempt.timestamp.formatted())
                     Text("Box \(attempt.beforeSchedule.box) → \(attempt.afterSchedule.box); due \(attempt.beforeSchedule.dueAt.formatted()) → \(attempt.afterSchedule.dueAt.formatted()); algorithm \(attempt.algorithmVersion)")
+                    Text("Consecutive recalls \(attempt.beforeSchedule.consecutiveRecalls) → \(attempt.afterSchedule.consecutiveRecalls); schedule versions \(attempt.beforeSchedule.algorithmVersion) → \(attempt.afterSchedule.algorithmVersion)")
+                    Text("Previous attempt \(attempt.beforeSchedule.lastAttemptID?.rawValue ?? "none"); next schedule attempt \(attempt.afterSchedule.lastAttemptID?.rawValue ?? "none")").font(.caption)
                     Text("Card \(attempt.cardID.rawValue) · Attempt \(attempt.id.rawValue)").font(.caption)
                 }.accessibilityIdentifier("ledger.attempt.\(attempt.id.rawValue)")
             }

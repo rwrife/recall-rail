@@ -547,10 +547,15 @@ public struct RecallRepository: Sendable {
         try db.write { raw in
             try raw.inSavepoint {
                 let stored = try Row.fetchOne(raw, sql: """
-                    SELECT status, json_extract(record, '$.cursor') AS cursor
+                    SELECT record, status, json_extract(record, '$.cursor') AS cursor
                     FROM session WHERE id = ?;
                     """, arguments: [snapshot.id])
                 if let stored {
+                    let durable: StudySession = try stored.domainValue("record")
+                    guard durable.deckID == session.deckID, durable.mode == session.mode,
+                          durable.cardOrder == session.cardOrder else {
+                        throw StoreError.invalidSessionAdvance("session deck, mode and order are immutable")
+                    }
                     let storedStatus: String = stored["status"]
                     guard storedStatus != "completed", storedStatus != "abandoned" else {
                         throw StoreError.invalidSessionAdvance(

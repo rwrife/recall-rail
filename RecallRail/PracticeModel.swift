@@ -57,7 +57,7 @@ final class PracticeModel {
         perform {
             if let session = try repo.resumableSession(deckID: deckID) {
                 run = try PracticeService.resume(repo: repo, session: session, at: Date(), nanos: nanos)
-                notice = "Resumed. Any uncommitted grade was canceled. Current card timing restarted; background time is excluded."
+                notice = "Resumed. Any uncommitted grade was canceled. Uncheckpointed timing restarted; background time is excluded."
             }
         }
     }
@@ -65,10 +65,10 @@ final class PracticeModel {
     func reveal() { perform { try run?.reveal(repo: repo) } }
     func grade(_ grade: Grade) { perform { try run?.grade(grade, repo: repo, at: Date(), nanos: nanos) } }
     func undo() { run?.undo() }
-    func next() { perform { try run?.next(repo: repo, nanos: nanos) } }
+    func next() { perform { try run?.next(repo: repo, nanos: nanos, at: Date()) } }
     func interrupt() {
         perform { try run?.interrupt(repo: repo, at: Date(), nanos: nanos) }
-        notice = "Pending grade canceled. Resume restarts timing for this card."
+        notice = "Pending grade canceled. Measured foreground time saved; background time is excluded."
     }
 
     /// Only this explicit action requests microphone access. No capture or
@@ -91,10 +91,11 @@ final class PracticeModel {
         due = nil
         mastery = nil
         ledger = []
-        let schedule = try repo.schedule(cardID: id) ?? .initial(at: stored.createdAt, algorithmVersion: 1)
+        let schedule = try repo.practiceSchedule(for: stored)
         ledger = try repo.attempts(cardID: id)
         let scheduler = LeitnerScheduler()
+        try scheduler.validate(schedule)
         due = scheduler.dueReason(for: schedule, at: Date())
-        mastery = MasteryDeriver(scheduler: scheduler).derive(evidence: try repo.evidence(cardID: id), at: Date())
+        mastery = MasteryDeriver(scheduler: scheduler).derive(evidence: try repo.evidence(cardID: id), currentSchedule: schedule, at: Date())
     }
 }

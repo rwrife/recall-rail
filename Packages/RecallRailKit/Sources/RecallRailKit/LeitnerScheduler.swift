@@ -73,12 +73,7 @@ public struct LeitnerScheduler: Sendable {
         at instant: Date,
         attemptID: StableID
     ) throws -> ScheduleState {
-        guard state.algorithmVersion == algorithmVersion else {
-            throw SchedulingError.unsupportedAlgorithmVersion(state.algorithmVersion)
-        }
-        guard (1...SchedulingRules.maxBox).contains(state.box) else {
-            throw SchedulingError.boxOutOfRange(state.box)
-        }
+        try validate(state)
         guard let row = SchedulingRules.rule(version: algorithmVersion, grade: grade, fromBox: state.box) else {
             throw SchedulingError.missingRule(grade: grade, fromBox: state.box)
         }
@@ -102,6 +97,17 @@ public struct LeitnerScheduler: Sendable {
             lastAttemptID: attemptID,
             algorithmVersion: algorithmVersion
         )
+    }
+
+    /// Query paths validate too; an unsupported schedule must not produce
+    /// a guessed due queue or a confident UI explanation.
+    public func validate(_ state: ScheduleState) throws {
+        guard state.algorithmVersion == algorithmVersion else {
+            throw SchedulingError.unsupportedAlgorithmVersion(state.algorithmVersion)
+        }
+        guard (1...SchedulingRules.maxBox).contains(state.box) else {
+            throw SchedulingError.boxOutOfRange(state.box)
+        }
     }
 
     /// Explain why (or why not) a card appears due at an instant.

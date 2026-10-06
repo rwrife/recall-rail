@@ -55,6 +55,27 @@ public struct MasteryDeriver: Sendable {
         self.scheduler = scheduler
     }
 
+    /// The live schedule's identity is authoritative for a stored card.
+    /// Wall-clock ordering alone cannot identify the last durable attempt
+    /// after a clock edit. Missing/mismatched evidence stays insufficient.
+    public func derive(evidence: [CardEvidence], currentSchedule: ScheduleState, at instant: Date) -> MasteryState {
+        guard let id = currentSchedule.lastAttemptID else {
+            return evidence.isEmpty ? .unseen : .insufficientEvidence
+        }
+        guard !evidence.contains(where: {
+            if case .corrupt = $0 { return true }
+            if case .missing = $0 { return true }
+            return false
+        }), let latest = evidence.compactMap({ item -> Attempt? in
+            if case .attempt(let attempt) = item, attempt.id == id { return attempt }
+            return nil
+        }).first, isReadable(latest), latest.afterSchedule == currentSchedule else {
+            return .insufficientEvidence
+        }
+        if instant >= currentSchedule.dueAt { return .due }
+        return latest.grade == .recalled ? .recentlyRecalled : .learning
+    }
+
     /// Deterministic ordering of evidence: wall-clock timestamp, then the
     /// monotonic start anchor (immune to wall-clock edits), then a stable ID
     /// tie-break so equal instants still produce one total order.
