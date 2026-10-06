@@ -1,28 +1,32 @@
 import SwiftUI
 
+/// Root view. With storage ready it hosts the deck library; a failed
+/// open stays visible (no network fallback exists — no local storage
+/// means no function).
 struct ContentView: View {
     let productName: String
     /// False when the app-owned database could not be opened at launch.
-    /// Until authoring screens land, a failed open is the only state the
-    /// learner can observe, so it must be visible rather than silent.
     var databaseAvailable: Bool = true
+    var library: DeckLibrary?
 
     var body: some View {
-        NavigationStack {
-            ContentUnavailableView {
-                Label(productName, systemImage: "rectangle.stack.fill")
-            } description: {
-                if databaseAvailable {
-                    Text("Your private study decks will live here.")
-                } else {
-                    Text("Local storage could not be opened. Your decks are safe on this device but unavailable until storage is restored.")
-                }
-            } actions: {
-                Button("Create a deck") {}
-                    .disabled(true)
-                    .accessibilityHint("Deck authoring arrives in a later milestone.")
+        if let library {
+            NavigationStack {
+                DeckListView(library: library)
             }
-            .navigationTitle(productName)
+        } else {
+            NavigationStack {
+                ContentUnavailableView {
+                    Label(productName, systemImage: "rectangle.stack.fill")
+                } description: {
+                    Text("Local storage could not be opened. Your decks are safe on this device but unavailable until storage is restored.")
+                } actions: {
+                    Button("Create a deck") {}
+                        .disabled(true)
+                        .accessibilityHint("Storage is unavailable.")
+                }
+                .navigationTitle(productName)
+            }
         }
     }
 }

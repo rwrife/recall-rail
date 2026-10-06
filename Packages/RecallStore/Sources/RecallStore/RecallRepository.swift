@@ -18,9 +18,30 @@ public struct RecallRepository: Sendable {
 
     // MARK: - Decks
 
-    public func saveDeck(_ deck: Deck) throws {
+    /// Save a deck's editable fields. `createdAt` is PRESERVED (COALESCE)
+    /// the same way `saveCard` preserves `schedule`: an in-place deck edit
+    /// updates content and `updatedAt` but can never rewind the creation
+    /// instant, which is ordering metadata decks are listed by.
+    public func saveDeck(_ deck: Deck, preserveCreatedAt: Bool = false) throws {
         let snapshot = Snapshots.DeckSnapshot(deck: deck)
         let record = try Snapshots.canonicalPayload(deck)
+        guard preserveCreatedAt else {
+            try mutate(sql: """
+                INSERT INTO deck (id, title, is_archived, created_at, updated_at, record)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title,
+                    is_archived = excluded.is_archived,
+                    updated_at = excluded.updated_at,
+                    record = excluded.record;
+                """,
+                values: [snapshot.id, snapshot.title, snapshot.isArchived ? 1 : 0,
+                         snapshot.createdAt.timeIntervalSince1970,
+                         snapshot.updatedAt.timeIntervalSince1970,
+                         record],
+                table: "deck", id: snapshot.id)
+            return
+        }
         try mutate(sql: """
             INSERT INTO deck (id, title, is_archived, created_at, updated_at, record)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -28,7 +49,8 @@ public struct RecallRepository: Sendable {
                 title = excluded.title,
                 is_archived = excluded.is_archived,
                 updated_at = excluded.updated_at,
-                record = excluded.record;
+                record = excluded.record,
+                created_at = COALESCE(deck.created_at, excluded.created_at);
             """,
             values: [snapshot.id, snapshot.title, snapshot.isArchived ? 1 : 0,
                      snapshot.createdAt.timeIntervalSince1970,
@@ -149,6 +171,34 @@ public struct RecallRepository: Sendable {
         return try db.read { raw in
             try Row.fetchAll(raw, sql: sql, arguments: [deckID.rawValue]).map { (row: Row) throws in
                 try row.domainValue("record") as Card
+            }
+        }
+    }
+
+    /// Reorder every active card in a deck in one transaction. A stale or
+    /// filtered list is rejected rather than silently reordering a subset.
+    public func reorderCards(deckID: StableID, orderedIDs: [StableID], at instant: Date) throws {
+        try db.write { raw in
+            try raw.inSavepoint {
+                let stored = try Row.fetchAll(raw, sql: """
+                    SELECT record FROM card WHERE deck_id = ? AND is_archived = 0
+                    ORDER BY sort_order, id
+                    """, arguments: [deckID.rawValue])
+                    .map { (row: Row) throws -> Card in try row.domainValue("record") }
+                guard orderedIDs.count == stored.count,
+                      Set(orderedIDs) == Set(stored.map(\.id)) else {
+                    throw StoreError.rolledBack(reason: "reorder requires every active card in this deck")
+                }
+                let byID = Dictionary(uniqueKeysWithValues: stored.map { ($0.id, $0) })
+                for (index, id) in orderedIDs.enumerated() {
+                    var card = byID[id]!
+                    card.sortOrder = index
+                    card.updatedAt = instant
+                    try raw.execute(sql: "UPDATE card SET sort_order = ?, updated_at = ?, record = ? WHERE id = ?",
+                                    arguments: [index, instant.timeIntervalSince1970,
+                                                try Snapshots.canonicalPayload(card), id.rawValue])
+                }
+                return .commit
             }
         }
     }
@@ -574,11 +624,18 @@ public struct RecallRepository: Sendable {
 
     /// Import cards (with schedules) in ONE transaction.
     ///
-    /// Validation runs first (stable-ID duplicates inside the batch and
-    /// unknown decks); in `allOrNothing` any rejection aborts before any
-    /// row is written. In `validRowsOnly`, rejections are reported and the
-    /// remaining rows commit. Either way a mid-transaction database failure
-    /// rolls back every prior row of the same import.
+    /// Validation runs first (stable-ID duplicates inside the batch,
+    /// unknown decks, and cross-deck updates); in `allOrNothing` any
+    /// rejection aborts before any row is written. In `validRowsOnly`,
+    /// rejections are reported and the remaining rows commit. Either way a
+    /// mid-transaction database failure rolls back every prior row of the
+    /// same import.
+    ///
+    /// A card ID that already exists in a DIFFERENT deck is rejected rather
+    /// than silently re-parented: the schema only hard-blocks re-parenting
+    /// evidenced cards, and an unevidenced card drifting between decks via
+    /// a hand-edited CSV is exactly the contamination a strict import must
+    /// refuse. Moving a card deliberately is an explicit in-app action.
     @discardableResult
     public func importCards(_ cards: [Card], schedules: [StableID: ScheduleState] = [:],
                             mode: ImportMode = .allOrNothing) throws -> ImportOutcome {
@@ -592,6 +649,15 @@ public struct RecallRepository: Sendable {
                     continue
                 }
                 seen.insert(card.id.rawValue)
+                let owner: String? = try String.fetchOne(
+                    raw, sql: "SELECT deck_id FROM card WHERE id = ?",
+                    arguments: [card.id.rawValue]
+                )
+                if let owner, owner != card.deckID.rawValue {
+                    outcome.rejected.append(.init(id: card.id,
+                                                  reason: "card exists in another deck (\(owner)); refusing silent re-parent"))
+                    continue
+                }
                 let deckExists = try Bool.fetchOne(
                     raw, sql: "SELECT EXISTS(SELECT 1 FROM deck WHERE id = ?)",
                     arguments: [card.deckID.rawValue]

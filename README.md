@@ -61,7 +61,7 @@ Recall Rail is a study aid, not an accredited testing system. Its mastery labels
 
 ## Status and milestones
 
-Documentation and backlog scaffold only. No Xcode project, application build, simulator/device result, archive, dual-screen validation, or TestFlight binary exists yet.
+Native iPhone Xcode project, domain package, and GRDB-backed local store have landed. Authoring and CSV import are under issue #4. Apple CI builds and tests the current app; no archive, dual-screen validation, or TestFlight binary exists yet.
 
 1. Native project skeleton, iPhone-only settings, and CI contracts.
 2. Domain model, scheduler, and persistence.
@@ -69,9 +69,22 @@ Documentation and backlog scaffold only. No Xcode project, application build, si
 4. Accessible rehearsal UI and future dual-screen layout seam.
 5. Backup/export, privacy audit, and release evidence.
 
+## Card CSV format (documented contract)
+
+Cards in one selected deck use plain UTF-8 CSV following RFC 4180 quoting:
+
+- **Encoding:** UTF-8 only. A UTF-8 byte-order mark is accepted and stripped with a warning; files in any other encoding are rejected rather than guessed.
+- **Header row:** required columns `prompt` and `answer`; optional `hint`, `source`, `tags`, `id`, `sort` in any order. Unknown columns abort the import instead of silently discarding data.
+- **Quoting:** fields containing commas, quotes, or line breaks are wrapped in double quotes; embedded quotes are doubled. Quoted multi-line fields are supported and error reports cite the record's original starting line. Unterminated quotes, quotes in bare fields, and characters after a closing quote are errors; malformed rows cannot be imported even in valid-rows-only mode.
+- **Line endings:** CRLF, LF, and CR are all accepted; a mixed file parses with a warning.
+- **Tags:** semicolon-separated within the cell (`exam;ch1`), trimmed, duplicates removed.
+- **Stable IDs:** the optional `id` column carries the card's UUID. An export includes IDs, so edit-then-reimport updates matching cards in place (unchanged rows are skipped, changed rows are updates) instead of duplicating them. An `id` that is not a valid UUID, or repeated within the file, is an error. Cards can never be re-parented to another deck through import.
+- **Sort order:** the optional `sort` column sets stable order; missing or duplicate values fall back to sequential row order with a warning.
+- **Preview before commit:** the import screen lists additions, updates, skipped-unchanged rows, warnings, and errors — nothing is written until the user commits. Truly empty lines may be skipped; comma-only records are malformed, not blank. Commit is all-or-nothing by default; "valid rows only" is available only as an explicit user choice and still lists every excluded file row. The remaining valid rows commit together or not at all if database revalidation rejects any card (for example a cross-deck ID).
+
 ## Development quickstart
 
-The implementation issue will add the Xcode project. Expected commands on an Apple environment:
+The Xcode project is available. Expected commands on an Apple environment:
 
 ```bash
 xcodebuild -version
@@ -79,7 +92,7 @@ xcodebuild -project RecallRail.xcodeproj -scheme RecallRail -destination 'platfo
 xcodebuild -project RecallRail.xcodeproj -scheme RecallRail -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
-Linux can verify documentation, JSON contracts, pure data fixtures, and static source policy only. It cannot honestly claim an iOS build or `UIDeviceFamily` result.
+Linux can run the Swift package suites and static source policy checks, but cannot build or run the iPhone app. Apple CI supplies simulator build/test and built `UIDeviceFamily` evidence for each exact PR head; no Linux result substitutes for it.
 
 ## Distribution
 
