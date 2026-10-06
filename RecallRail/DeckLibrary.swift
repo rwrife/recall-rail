@@ -123,7 +123,7 @@ final class DeckLibrary {
             lastError = nil
             return true
         } catch {
-            lastError = "Cannot delete card with recorded study evidence. Archive it instead. \(error)"
+            lastError = "Cannot delete card: \(error). Finish or abandon any active practice session, or archive to preserve history."
             return false
         }
     }

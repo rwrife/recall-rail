@@ -250,10 +250,32 @@ public struct RecallRepository: Sendable {
     }
 
     /// Hard-delete a card that carries no attempts. Fails with
-    /// `StoreError.foreignKeyFailed` when recorded evidence references it.
+    /// `StoreError.foreignKeyFailed` when recorded evidence references it,
+    /// or `StoreError.rolledBack` when the card is queued in an active or
+    /// interrupted session.
     public func deleteCard(id: StableID) throws {
-        try mutate(sql: "DELETE FROM card WHERE id = ?", values: [id.rawValue],
-                   table: "card", id: id.rawValue)
+        try db.write { raw in
+            try raw.inSavepoint {
+                let inActiveSession = try Bool.fetchOne(raw, sql: """
+                    SELECT EXISTS(
+                        SELECT 1 FROM session, json_each(session.record, '$.cardOrder')
+                        WHERE session.status IN ('active', 'interrupted')
+                          AND json_each.value = ?
+                    );
+                    """, arguments: [id.rawValue]) ?? false
+                if inActiveSession {
+                    throw StoreError.rolledBack(
+                        reason: "cannot delete card \(id.rawValue) while queued in an active or interrupted practice session"
+                    )
+                }
+                do {
+                    try raw.execute(sql: "DELETE FROM card WHERE id = ?", arguments: [id.rawValue])
+                } catch {
+                    throw RecallDatabase.mapSQLError(error, table: "card", id: id.rawValue)
+                }
+                return .commit
+            }
+        }
     }
 
     // MARK: - Attempts (append-only)

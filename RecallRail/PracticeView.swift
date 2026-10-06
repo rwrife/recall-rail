@@ -68,8 +68,14 @@ struct PracticeView: View {
                         Text(dueExplanation(due))
                     }
                     if let mastery = model.mastery { Text("App evidence: \(masteryLabel(mastery))") }
-                } else {
+                } else if model.run?.session.status == .completed {
                     Text("Practice complete").accessibilityIdentifier("practice.complete")
+                } else {
+                    Text("Current card unavailable. Abandon this session to start again.")
+                }
+                if model.hasResumableSession {
+                    Button("Abandon session", role: .destructive) { model.abandon() }
+                        .accessibilityIdentifier("practice.abandon")
                 }
                 Text(model.notice).font(.footnote)
                 NavigationLink("Raw attempt ledger") {

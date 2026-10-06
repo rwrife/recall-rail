@@ -71,6 +71,28 @@ final class PracticeModel {
         notice = "Pending grade canceled. Measured foreground time saved; background time is excluded."
     }
 
+    func abandon() {
+        perform {
+            if var current = run {
+                try current.abandon(repo: repo, at: Date())
+                run = nil
+            } else if let session = try repo.resumableSession(deckID: deckID) {
+                var active = try PracticeService.resume(repo: repo, session: session, at: Date(), nanos: nanos)
+                try active.abandon(repo: repo, at: Date())
+                run = nil
+            }
+            card = nil
+            due = nil
+            mastery = nil
+            ledger = []
+            notice = "Practice session abandoned. You can start a fresh session."
+        }
+    }
+
+    var hasResumableSession: Bool {
+        (try? repo.resumableSession(deckID: deckID)) != nil
+    }
+
     /// Only this explicit action requests microphone access. No capture or
     /// audio session is started, even on grant; spoken practice is self-grade.
     func requestMicrophone() {

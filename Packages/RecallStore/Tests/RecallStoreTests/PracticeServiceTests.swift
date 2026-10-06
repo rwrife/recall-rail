@@ -155,4 +155,35 @@ final class PracticeServiceTests: XCTestCase {
         XCTAssertEqual(try repo.attempts(cardID: b.id).first?.elapsedMilliseconds, 5)
         XCTAssertEqual(run.session.status, .completed)
     }
+
+    func testQueuedCardCannotBeDeletedWhileSessionIsActiveOrInterruptedAndCanBeAbandoned() throws {
+        let repo = RecallRepository(db: try RecallDatabase.openInMemory())
+        let deck = StoreFixtures.deck()
+        let a = StoreFixtures.card(deckID: deck.id)
+        let b = StoreFixtures.card(deckID: deck.id, sortOrder: 1)
+        try repo.saveDeck(deck)
+        try repo.saveCard(a)
+        try repo.saveCard(b)
+        var run = try PracticeService.start(repo: repo, deckID: deck.id, selection: PracticeSelection(), mode: .tapReveal, at: StoreFixtures.now, nanos: 0)
+        try run.reveal(repo: repo)
+        try run.grade(.recalled, repo: repo, at: StoreFixtures.now, nanos: 10)
+        try run.next(repo: repo, nanos: 20)
+        try run.interrupt(repo: repo, at: StoreFixtures.now, nanos: 30)
+
+        // Deleting card B while queued in the interrupted session must be rejected
+        XCTAssertThrowsError(try repo.deleteCard(id: b.id))
+
+        // Abandoning the session frees the queue
+        try run.abandon(repo: repo, at: StoreFixtures.now)
+        XCTAssertEqual(run.session.status, .abandoned)
+        XCTAssertNil(try repo.resumableSession(deckID: deck.id))
+
+        // Now card B (carrying no attempts) can be deleted
+        try repo.deleteCard(id: b.id)
+        XCTAssertNil(try repo.card(id: b.id))
+
+        // And a new session can start for card A
+        let fresh = try PracticeService.start(repo: repo, deckID: deck.id, selection: PracticeSelection(dueOnly: false), mode: .tapReveal, at: StoreFixtures.now, nanos: 100)
+        XCTAssertEqual(fresh.session.cardOrder, [a.id])
+    }
 }

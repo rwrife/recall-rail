@@ -104,6 +104,16 @@ public struct PracticeService: Sendable {
         session = interrupted
     }
 
+    public mutating func abandon(repo: RecallRepository, at instant: Date) throws {
+        pending = nil
+        guard session.status == .active || session.status == .interrupted else { return }
+        var abandoned = session
+        abandoned.status = .abandoned
+        abandoned.endedAt = instant
+        try repo.saveSession(abandoned)
+        session = abandoned
+    }
+
     private func foregroundNanos(to nanos: UInt64) -> UInt64 {
         guard nanos >= cardAnchor else { return 0 }
         let sum = accumulatedNanos.addingReportingOverflow(nanos - cardAnchor)
