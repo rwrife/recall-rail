@@ -145,6 +145,13 @@ jobs:
           echo "Built bundle: $bundle_id; UIDeviceFamily=$family; privacy manifest embedded: PASS"
           cp "$plist" AppleEvidence/BuiltInfo.plist
           echo "Built bundle: $bundle_id; UIDeviceFamily=$family; privacy manifest embedded: PASS" > AppleEvidence/metadata.txt
+      - name: Export simulator test failure details
+        if: always()
+        run: |
+          if [ -d AppleEvidence/PracticeTests.xcresult ]; then
+            xcrun xcresulttool get test-results summary --path AppleEvidence/PracticeTests.xcresult > AppleEvidence/test-summary.json || true
+            xcrun xcresulttool get test-results tests --path AppleEvidence/PracticeTests.xcresult > AppleEvidence/test-cases.json || true
+          fi
       - name: Upload exact-head Apple test evidence and failure diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

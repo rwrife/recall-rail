@@ -19,7 +19,9 @@ final class PracticeJourneyTests: XCTestCase {
         app.textFields["deck-editor.title"].tap()
         app.textFields["deck-editor.title"].typeText(title)
         app.buttons["deck-editor.save"].tap()
-        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch.tap()
+        let row = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'deck-row.' AND label CONTAINS %@", title)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
+        row.tap()
         for index in 1...2 {
             app.buttons["deck-detail.new-card"].tap()
             let prompt = app.descendants(matching: .any).matching(identifier: "card-editor.prompt").firstMatch
@@ -47,7 +49,8 @@ final class PracticeJourneyTests: XCTestCase {
         tap(app, "practice.grade.again")
         app.terminate()
         app.launch()
-        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch.tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
+        row.tap()
         app.buttons["deck-detail.practice"].tap()
         tap(app, "practice.resume")
         XCTAssertEqual(app.staticTexts["practice.prompt"].label, "Prompt 2")
