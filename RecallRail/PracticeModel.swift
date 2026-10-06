@@ -43,7 +43,7 @@ final class PracticeModel {
 
     func perform(_ operation: () throws -> Void) {
         do { try operation(); error = nil; try refresh() }
-        catch { error = String(describing: error) }
+        catch { self.error = String(describing: error) }
     }
 
     func start(selection: PracticeSelection, mode: PracticeMode) {
