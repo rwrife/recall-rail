@@ -8,6 +8,7 @@
       <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="NO">
         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AA10000000000000000000C6" BuildableName="RecallRailTests.xctest" BlueprintName="RecallRailTests" ReferencedContainer="container:RecallRail.xcodeproj"/>
       </BuildActionEntry>
+    <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="NO"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AA10000000000000000000E6" BuildableName="RecallRailUITests.xctest" BlueprintName="RecallRailUITests" ReferencedContainer="container:RecallRail.xcodeproj"/></BuildActionEntry>
     </BuildActionEntries>
   </BuildAction>
   <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">
@@ -15,6 +16,7 @@
       <TestableReference skipped="NO" parallelizable="YES">
         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AA10000000000000000000C6" BuildableName="RecallRailTests.xctest" BlueprintName="RecallRailTests" ReferencedContainer="container:RecallRail.xcodeproj"/>
       </TestableReference>
+    <TestableReference skipped="NO" parallelizable="NO"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AA10000000000000000000E6" BuildableName="RecallRailUITests.xctest" BlueprintName="RecallRailUITests" ReferencedContainer="container:RecallRail.xcodeproj"/></TestableReference>
     </Testables>
   </TestAction>
   <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">

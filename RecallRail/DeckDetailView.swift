@@ -24,6 +24,8 @@ struct DeckDetailView: View {
         List {
             if let deck {
                 Section {
+                    NavigationLink("Practice") { PracticeView(repo: library.repo, deckID: deckID) }
+                        .accessibilityIdentifier("deck-detail.practice")
                     Button("New card", systemImage: "plus") { showingNewCard = true }
                         .accessibilityIdentifier("deck-detail.new-card")
                     Button("Import CSV", systemImage: "square.and.arrow.down") { showingImport = true }

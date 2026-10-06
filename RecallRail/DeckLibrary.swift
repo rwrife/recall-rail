@@ -13,7 +13,7 @@ import RecallStore
 @MainActor
 @Observable
 final class DeckLibrary {
-    private let repo: RecallRepository
+    let repo: RecallRepository
     private let clock: InstantProviding
 
     var decks: [Deck] = []

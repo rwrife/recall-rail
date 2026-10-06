@@ -365,17 +365,33 @@ public struct RecallRepository: Sendable {
                 // the match — it is presentation state the learner flips
                 // in memory immediately before grading.
                 let durableRow = try Row.fetchOne(raw, sql: """
-                    SELECT json_extract(record, '$.cursor') AS cursor, status
+                    SELECT record, json_extract(record, '$.cursor') AS cursor, status
                     FROM session WHERE id = ?;
                     """, arguments: [session.id.rawValue])
                 if let durableRow {
+                    let durable: StudySession = try durableRow.domainValue("record")
                     let storedCursor: Int? = durableRow["cursor"]
                     let storedStatus: String = durableRow["status"]
                     guard storedCursor == session.cursor,
+                          durable.cardOrder == session.cardOrder,
+                          durable.deckID == session.deckID,
+                          durable.mode == session.mode,
                           storedStatus == "active" || storedStatus == "interrupted" else {
                         throw StoreError.invalidSessionAdvance(
                             "stored session state no longer matches the caller's (stale or concurrent advance)"
                         )
+                    }
+                }
+                // Compare the schedule inside this transaction, without a
+                // nested repository/GRDB read. Another session may have
+                // changed it since this pending grade was prepared.
+                if let row = try Row.fetchOne(raw, sql: "SELECT schedule FROM card WHERE id = ?",
+                                              arguments: [attempt.cardID.rawValue]),
+                   let payload: String = row["schedule"] {
+                    guard let data = payload.data(using: .utf8),
+                          let current = try? JSONDecoder.domain.decode(ScheduleState.self, from: data),
+                          current == attempt.beforeSchedule else {
+                        throw StoreError.invalidSessionAdvance("stored schedule no longer matches pending grade")
                     }
                 }
                 do {
