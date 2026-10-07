@@ -1,11 +1,11 @@
 # Issue #5 implementation and local evidence
 
-Implemented only in the `issue-5-practice` worktree on `feat/issue-5-practice`. Recovery checkpoint: `add2c00`. No push, PR, merge, main-branch commit, other-repository edit, or scheduled-job change was performed.
+Implemented in the `issue-5-practice` worktree on `feat/issue-5-practice`; original recovery checkpoint: `add2c00`. This file records Linux-side verification and is not Apple build or simulator evidence.
 
 ## Exact changed files
 
 - Domain: `Packages/RecallRailKit/Sources/RecallRailKit/{AttemptEntities,LeitnerScheduler,MasteryDeriver,PracticeSelection}.swift`; `Packages/RecallRailKit/Tests/RecallRailKitTests/PracticeSelectionTests.swift`.
-- Store: `Packages/RecallStore/Sources/RecallStore/{PracticeService,RecallRepository}.swift`; `Packages/RecallStore/Tests/RecallStoreTests/{PracticeServiceTests,InterruptionRecoveryTests}.swift`.
+- Store: `Packages/RecallStore/Sources/RecallStore/{PracticeService,RecallRepository,Records}.swift`; `Packages/RecallStore/Tests/RecallStoreTests/{PracticeServiceTests,InterruptionRecoveryTests,DatePayloadTests}.swift`.
 - App: `RecallRail/{DeckDetailView,DeckLibrary,PracticeModel,PracticeView}.swift`.
 - Apple tests: `RecallRailTests/SpokenPracticeTests.swift`; `RecallRailUITests/PracticeJourneyTests.swift`.
 - Wiring/gates: `RecallRail.xcodeproj/project.pbxproj`; `RecallRail.xcodeproj/xcshareddata/xcschemes/RecallRail.xcscheme`; `.github/workflows/ci.yml`; `scripts/check_project_contract.sh`.
@@ -39,7 +39,7 @@ docker run --rm \
     swift test --package-path Packages/RecallStore -Xswiftc -warnings-as-errors'
 ```
 
-Final output: **77 RecallRailKit tests + 51 RecallStore tests = 128 passing tests**, zero failures. Both commands compile production packages and execute their real tests. The new tests include service-level file-backed relaunch, smaller reboot uptime, backwards wall-clock changes, no duplicate attempts, pending cancellation, per-card timing, intersecting selection, stale retry, missing evidence, and transaction rollback/retry.
+Final output: **77 RecallRailKit tests + 54 RecallStore tests = 131 passing tests**, zero failures. Both commands compile production packages and execute their real tests. The new tests include service-level file-backed relaunch, smaller reboot uptime, backwards wall-clock changes, no duplicate attempts, pending cancellation, per-card timing, intersecting selection, stale retry, missing evidence, transaction rollback/retry, and lossless reference-date bit-exact round-trips preserving raw Double precision without IEEE-754 mantissa bit truncation.
 
 ```bash
 bash scripts/check_project_contract.sh
