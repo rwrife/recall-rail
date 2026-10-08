@@ -11,7 +11,7 @@ import RecallRailKit
 /// survive serialization verbatim fails the write instead of persisting a
 /// row that would later decode differently.
 enum Snapshots {
-    /// Canonical payload text (sorted keys, numeric dates), validated by a
+    /// Canonical payload text (sorted keys, lossless dates), validated by a
     /// strict decode round-trip against the original value.
     static func canonicalPayload<T: Codable & Equatable>(_ value: T) throws -> String {
         let data = try JSONEncoder.domain.encode(value)
@@ -107,12 +107,14 @@ public enum StoreEncodeError: Error, Equatable {
 }
 
 extension JSONEncoder {
-    /// Canonical encoder used for every persisted payload: stable numeric
-    /// dates (lossless across sub-second precision; ISO-8601 truncates to
-    /// whole seconds), sorted keys so stored JSON text is byte-deterministic.
+    /// Preserve the exact reference-date Double: epoch-second JSON numbers
+    /// lose low bits at current dates and reject otherwise valid live writes.
     static var domain: JSONEncoder {
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .secondsSince1970
+        encoder.dateEncodingStrategy = .custom { date, coder in
+            var value = coder.singleValueContainer()
+            try value.encode("ref:" + String(date.timeIntervalSinceReferenceDate.bitPattern, radix: 16))
+        }
         encoder.outputFormatting = [.sortedKeys]
         return encoder
     }
@@ -121,7 +123,19 @@ extension JSONEncoder {
 extension JSONDecoder {
     static var domain: JSONDecoder {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .secondsSince1970
+        decoder.dateDecodingStrategy = .custom { coder in
+            let value = try coder.singleValueContainer()
+            if let text = try? value.decode(String.self) {
+                guard text.hasPrefix("ref:"),
+                      let bits = UInt64(text.dropFirst(4), radix: 16),
+                      Double(bitPattern: bits).isFinite else {
+                    throw DecodingError.dataCorruptedError(in: value, debugDescription: "Invalid reference date")
+                }
+                return Date(timeIntervalSinceReferenceDate: Double(bitPattern: bits))
+            }
+            // Version-one payloads used numeric seconds since 1970.
+            return Date(timeIntervalSince1970: try value.decode(Double.self))
+        }
         return decoder
     }
 }

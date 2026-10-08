@@ -70,6 +70,9 @@ jobs:
       - name: Select exact pinned Xcode
         run: |
           set -euo pipefail
+          mkdir -p AppleEvidence
+          git rev-parse HEAD > AppleEvidence/head.txt
+          ls -d /Applications/Xcode*.app > AppleEvidence/xcode-inventory.txt || true
           required_version="Xcode 26.0.1"
           required_build="17A400"
           selected=""
@@ -78,6 +81,7 @@ jobs:
             developer="$app/Contents/Developer"
             version=$(DEVELOPER_DIR="$developer" xcodebuild -version | head -1)
             build=$(DEVELOPER_DIR="$developer" xcodebuild -version | grep -i 'build version' | awk '{print $3}')
+            echo "$app: $version ($build)" >> AppleEvidence/xcode-inventory.txt
             if [ "$version" = "$required_version" ] && [ "$build" = "$required_build" ]; then
               selected="$developer"
               break
@@ -102,6 +106,11 @@ jobs:
       - name: Test native iPhone simulator app
         run: |
           set -euo pipefail
+          mkdir -p AppleEvidence
+          git rev-parse HEAD > AppleEvidence/head.txt
+          xcodebuild -version > AppleEvidence/toolchain.txt
+          xcrun --sdk iphoneos --show-sdk-version >> AppleEvidence/toolchain.txt
+          xcrun simctl list > AppleEvidence/simulators.txt
           xcodebuild -project RecallRail.xcodeproj \
             -scheme RecallRail \
             -configuration Debug \
@@ -109,7 +118,8 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17' \
             CODE_SIGNING_ALLOWED=NO \
             -derivedDataPath DerivedData \
-            test
+            -resultBundlePath AppleEvidence/PracticeTests.xcresult \
+            test 2>&1 | tee AppleEvidence/test.log
       - name: Build native iPhone simulator app
         run: |
           set -euo pipefail
@@ -120,7 +130,7 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             -derivedDataPath DerivedData \
-            build
+            build 2>&1 | tee AppleEvidence/build.log
       - name: Verify built bundle and iPhone-only metadata
         run: |
           set -euo pipefail
@@ -133,3 +143,19 @@ jobs:
           [ "$family" = '[1]' ] || { echo "::error::UIDeviceFamily is $family, expected [1]"; exit 1; }
           [ -f "$app/PrivacyInfo.xcprivacy" ] || { echo "::error::PrivacyInfo.xcprivacy is not embedded"; exit 1; }
           echo "Built bundle: $bundle_id; UIDeviceFamily=$family; privacy manifest embedded: PASS"
+          cp "$plist" AppleEvidence/BuiltInfo.plist
+          echo "Built bundle: $bundle_id; UIDeviceFamily=$family; privacy manifest embedded: PASS" > AppleEvidence/metadata.txt
+      - name: Export simulator test failure details
+        if: always()
+        run: |
+          if [ -d AppleEvidence/PracticeTests.xcresult ]; then
+            xcrun xcresulttool get test-results summary --path AppleEvidence/PracticeTests.xcresult > AppleEvidence/test-summary.json || true
+            xcrun xcresulttool get test-results tests --path AppleEvidence/PracticeTests.xcresult > AppleEvidence/test-cases.json || true
+          fi
+      - name: Upload exact-head Apple test evidence and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: apple-practice-${{ env.TARGET_SHA }}
+          path: AppleEvidence
+          if-no-files-found: warn

@@ -19,12 +19,20 @@
 			remoteGlobalIDString = AA10000000000000000000A2;
 			remoteInfo = RecallRail;
 		};
+		AA10000000000000000000E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA10000000000000000000A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA10000000000000000000A2;
+			remoteInfo = RecallRail;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		AA10000000000000000000B1 /* RecallRail.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RecallRail.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA10000000000000000000B3 /* toolchain.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = toolchain.json; sourceTree = "<group>"; };
 		AA10000000000000000000C1 /* RecallRailTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecallRailTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA10000000000000000000E1 /* RecallRailUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecallRailUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -46,6 +54,15 @@
 			path = RecallRailTests;
 			sourceTree = "<group>";
 		};
+		AA10000000000000000000E2 /* RecallRailUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = RecallRailUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +82,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA10000000000000000000E3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -73,6 +97,7 @@
 			children = (
 				AA10000000000000000000AC /* RecallRail */,
 				AA10000000000000000000C2 /* RecallRailTests */,
+				AA10000000000000000000E2 /* RecallRailUITests */,
 				AA10000000000000000000B3 /* toolchain.json */,
 				AA10000000000000000000B2 /* Products */,
 			);
@@ -83,6 +108,7 @@
 			children = (
 				AA10000000000000000000B1 /* RecallRail.app */,
 				AA10000000000000000000C1 /* RecallRailTests.xctest */,
+				AA10000000000000000000E1 /* RecallRailUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -135,6 +161,27 @@
 			productReference = AA10000000000000000000C1 /* RecallRailTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		AA10000000000000000000E6 /* RecallRailUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA10000000000000000000EA /* Build configuration list for PBXNativeTarget "RecallRailUITests" */;
+			buildPhases = (
+				AA10000000000000000000E4 /* Sources */,
+				AA10000000000000000000E3 /* Frameworks */,
+				AA10000000000000000000E5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA10000000000000000000E7 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AA10000000000000000000E2 /* RecallRailUITests */,
+			);
+			name = RecallRailUITests;
+			productName = RecallRailUITests;
+			productReference = AA10000000000000000000E1 /* RecallRailUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -147,6 +194,10 @@
 				TargetAttributes = {
 					AA10000000000000000000A2 = {
 						CreatedOnToolsVersion = 26.0.1;
+					};
+					AA10000000000000000000E6 = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = AA10000000000000000000A2;
 					};
 					AA10000000000000000000C6 = {
 						CreatedOnToolsVersion = 26.0.1;
@@ -173,6 +224,7 @@
 			targets = (
 				AA10000000000000000000A2 /* RecallRail */,
 				AA10000000000000000000C6 /* RecallRailTests */,
+				AA10000000000000000000E6 /* RecallRailUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -186,6 +238,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AA10000000000000000000C5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA10000000000000000000E5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -209,6 +268,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA10000000000000000000E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -216,6 +282,11 @@
 			isa = PBXTargetDependency;
 			target = AA10000000000000000000A2 /* RecallRail */;
 			targetProxy = AA10000000000000000000C0 /* PBXContainerItemProxy */;
+		};
+		AA10000000000000000000E7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA10000000000000000000A2 /* RecallRail */;
+			targetProxy = AA10000000000000000000E0 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -278,6 +349,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Recall Rail";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Optional permission for spoken rehearsal. Recall Rail does not record, retain, or transcribe audio.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -306,6 +378,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Recall Rail";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Optional permission for spoken rehearsal. Recall Rail does not record, retain, or transcribe audio.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -343,6 +416,22 @@
 			};
 			name = Debug;
 		};
+		AA10000000000000000000E8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.infinityball.recallrail.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = RecallRail;
+			};
+			name = Debug;
+		};
 		AA10000000000000000000C9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -357,6 +446,22 @@
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RecallRail.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RecallRail";
+			};
+			name = Release;
+		};
+		AA10000000000000000000E9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.infinityball.recallrail.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = RecallRail;
 			};
 			name = Release;
 		};
@@ -386,6 +491,15 @@
 			buildConfigurations = (
 				AA10000000000000000000C8 /* Debug */,
 				AA10000000000000000000C9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA10000000000000000000EA /* Build configuration list for PBXNativeTarget "RecallRailUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA10000000000000000000E8 /* Debug */,
+				AA10000000000000000000E9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

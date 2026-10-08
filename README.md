@@ -61,7 +61,21 @@ Recall Rail is a study aid, not an accredited testing system. Its mastery labels
 
 ## Status and milestones
 
-Native iPhone Xcode project, domain package, and GRDB-backed local store have landed. Authoring and CSV import are under issue #4. Apple CI builds and tests the current app; no archive, dual-screen validation, or TestFlight binary exists yet.
+Native iPhone authoring, CSV import, and local practice are implemented. Apple CI is wired to build and test the app and its XCUITest journey at the exact triggering head; local Linux checks do not establish an Apple pass. No archive, dual-screen validation, or TestFlight binary exists yet.
+
+## Practice contract (issue #5)
+
+From a deck, choose due-only or all cards, required tags and a text filter. These conditions intersect; due means `now >= dueAt`. Practice follows the user-authored card order (use Edit in the deck to reorder). The service also accepts an explicit rehearsal subset/order. Order, current cursor, and answer reveal are saved locally and never recomputed during a run. Resume restores an existing run before a new one can start.
+
+Reveal the answer, then select Again, Hard, or Recalled. This is a **pending** self-grade: no attempt or schedule is saved until **Next — save attempt**. Undo cancels only that pending grade. Next atomically appends immutable evidence, updates its schedule, and advances the cursor. Undo cannot rewrite saved history. Interruption and relaunch cancel pending grades, with an explicit message on resume. The ledger shows raw grades, timestamps, elapsed milliseconds, mode, and before/after box and due snapshots. Mastery describes app evidence, not guaranteed knowledge.
+
+Elapsed time belongs to the current card and freezes at grade selection. Background time is excluded. A clean interruption retains measured foreground time; an unclean relaunch restarts the uncheckpointed timing segment. A backwards uptime counter conservatively restarts current-card timing. Wall-clock edits never reorder the saved queue or replay a committed attempt. Next records its wall-clock commit instant and computes the next due date from that instant.
+
+**Spoken practice scope:** choosing Spoken rehearsal lets you speak aloud and use the same reveal/self-grade/undo/Next controls. It does not listen to or evaluate speech. Only tapping “Request microphone permission” invokes the system microphone permission request (`AVAudioApplication.requestRecordPermission`); starting or resuming spoken practice does not. Permission grant starts no recorder or audio capture. Denial retains the full self-grade workflow. There is no recording, audio retention, transcription, speech recognition, pronunciation score, or network service. The permission control is optional and is not required to speak aloud.
+
+The shared Xcode scheme includes an actual `RecallRailUITests` target that authors a deck and two cards, practices, undoes a pending grade, terminates/relaunches, resumes the revealed card, commits, and inspects the ledger. App boundary tests inject microphone denial. These Apple tests must run on the pinned Apple runner; Linux syntax parsing is not a build or simulator result. CI uploads the exact SHA, Xcode/SDK versions, simulator inventory, logs, `.xcresult`, and built metadata as `apple-practice-<SHA>`.
+
+See [issue #5 local evidence](docs/issue-5-evidence.md) for executed RED/GREEN output, exact commands/counts, changed files, and remaining Apple verification.
 
 1. Native project skeleton, iPhone-only settings, and CI contracts.
 2. Domain model, scheduler, and persistence.

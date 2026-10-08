@@ -64,12 +64,15 @@ final class InterruptionRecoveryTests: XCTestCase {
                 at: StoreFixtures.now.addingTimeInterval(31)
             )
             // Rebuild against the real card identity.
+            let before = try XCTUnwrap(repo.schedule(cardID: order[1]))
+            let after = try LeitnerScheduler().apply(grade: .again, to: before,
+                                                     at: second.timestamp, attemptID: second.id)
             let realSecond = Attempt(id: second.id, cardID: order[1], deckID: deck.id,
                                      timestamp: second.timestamp,
                                      monotonicStartNanos: 31, monotonicEndNanos: 32,
                                      grade: .again, mode: .tapReveal,
-                                     beforeSchedule: second.beforeSchedule,
-                                     afterSchedule: second.afterSchedule, algorithmVersion: 1)
+                                     beforeSchedule: before,
+                                     afterSchedule: after, algorithmVersion: 1)
             session = try repo.recordAttempt(realSecond, advancing: session)
             session.advance()
             XCTAssertEqual(session.status, .completed)

@@ -108,9 +108,18 @@ public struct RecallRepository: Sendable {
     /// `StoreError.foreignKeyFailed` while any attempt still references the
     /// deck or its cards — history outlives the objects it describes, so a
     /// deck carrying evidence can only be archived, never erased.
+    /// Also rejects deletion while any active or interrupted session still
+    /// references the deck or its queued cards.
     public func deleteDeck(id: StableID) throws {
         try db.write { raw in
             try raw.inSavepoint {
+                let activeSessions = try String.fetchAll(raw, sql: """
+                    SELECT id FROM session
+                    WHERE deck_id = ? AND status IN ('active', 'interrupted');
+                    """, arguments: [id.rawValue])
+                guard activeSessions.isEmpty else {
+                    throw StoreError.rolledBack(reason: "deck has active or interrupted practice session")
+                }
                 try raw.execute(
                     sql: "DELETE FROM card WHERE deck_id = ? AND id NOT IN (SELECT card_id FROM attempt)",
                     arguments: [id.rawValue]
@@ -250,10 +259,32 @@ public struct RecallRepository: Sendable {
     }
 
     /// Hard-delete a card that carries no attempts. Fails with
-    /// `StoreError.foreignKeyFailed` when recorded evidence references it.
+    /// `StoreError.foreignKeyFailed` when recorded evidence references it,
+    /// or `StoreError.rolledBack` when the card is queued in an active or
+    /// interrupted session.
     public func deleteCard(id: StableID) throws {
-        try mutate(sql: "DELETE FROM card WHERE id = ?", values: [id.rawValue],
-                   table: "card", id: id.rawValue)
+        try db.write { raw in
+            try raw.inSavepoint {
+                let inActiveSession = try Bool.fetchOne(raw, sql: """
+                    SELECT EXISTS(
+                        SELECT 1 FROM session, json_each(session.record, '$.cardOrder')
+                        WHERE session.status IN ('active', 'interrupted')
+                          AND json_each.value = ?
+                    );
+                    """, arguments: [id.rawValue]) ?? false
+                if inActiveSession {
+                    throw StoreError.rolledBack(
+                        reason: "cannot delete card \(id.rawValue) while queued in an active or interrupted practice session"
+                    )
+                }
+                do {
+                    try raw.execute(sql: "DELETE FROM card WHERE id = ?", arguments: [id.rawValue])
+                } catch {
+                    throw RecallDatabase.mapSQLError(error, table: "card", id: id.rawValue)
+                }
+                return .commit
+            }
+        }
     }
 
     // MARK: - Attempts (append-only)
@@ -365,17 +396,33 @@ public struct RecallRepository: Sendable {
                 // the match — it is presentation state the learner flips
                 // in memory immediately before grading.
                 let durableRow = try Row.fetchOne(raw, sql: """
-                    SELECT json_extract(record, '$.cursor') AS cursor, status
+                    SELECT record, json_extract(record, '$.cursor') AS cursor, status
                     FROM session WHERE id = ?;
                     """, arguments: [session.id.rawValue])
                 if let durableRow {
+                    let durable: StudySession = try durableRow.domainValue("record")
                     let storedCursor: Int? = durableRow["cursor"]
                     let storedStatus: String = durableRow["status"]
                     guard storedCursor == session.cursor,
+                          durable.cardOrder == session.cardOrder,
+                          durable.deckID == session.deckID,
+                          durable.mode == session.mode,
                           storedStatus == "active" || storedStatus == "interrupted" else {
                         throw StoreError.invalidSessionAdvance(
                             "stored session state no longer matches the caller's (stale or concurrent advance)"
                         )
+                    }
+                }
+                // Compare the schedule inside this transaction, without a
+                // nested repository/GRDB read. Another session may have
+                // changed it since this pending grade was prepared.
+                if let row = try Row.fetchOne(raw, sql: "SELECT schedule FROM card WHERE id = ?",
+                                              arguments: [attempt.cardID.rawValue]),
+                   let payload: String = row["schedule"] {
+                    guard let data = payload.data(using: .utf8),
+                          let current = try? JSONDecoder.domain.decode(ScheduleState.self, from: data),
+                          current == attempt.beforeSchedule else {
+                        throw StoreError.invalidSessionAdvance("stored schedule no longer matches pending grade")
                     }
                 }
                 do {
@@ -531,10 +578,15 @@ public struct RecallRepository: Sendable {
         try db.write { raw in
             try raw.inSavepoint {
                 let stored = try Row.fetchOne(raw, sql: """
-                    SELECT status, json_extract(record, '$.cursor') AS cursor
+                    SELECT record, status, json_extract(record, '$.cursor') AS cursor
                     FROM session WHERE id = ?;
                     """, arguments: [snapshot.id])
                 if let stored {
+                    let durable: StudySession = try stored.domainValue("record")
+                    guard durable.deckID == session.deckID, durable.mode == session.mode,
+                          durable.cardOrder == session.cardOrder else {
+                        throw StoreError.invalidSessionAdvance("session deck, mode and order are immutable")
+                    }
                     let storedStatus: String = stored["status"]
                     guard storedStatus != "completed", storedStatus != "abandoned" else {
                         throw StoreError.invalidSessionAdvance(
