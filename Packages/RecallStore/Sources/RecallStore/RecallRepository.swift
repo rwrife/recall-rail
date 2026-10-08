@@ -108,9 +108,18 @@ public struct RecallRepository: Sendable {
     /// `StoreError.foreignKeyFailed` while any attempt still references the
     /// deck or its cards — history outlives the objects it describes, so a
     /// deck carrying evidence can only be archived, never erased.
+    /// Also rejects deletion while any active or interrupted session still
+    /// references the deck or its queued cards.
     public func deleteDeck(id: StableID) throws {
         try db.write { raw in
             try raw.inSavepoint {
+                let activeSessions = try String.fetchAll(raw, sql: """
+                    SELECT id FROM session
+                    WHERE deck_id = ? AND status IN ('active', 'interrupted');
+                    """, arguments: [id.rawValue])
+                guard activeSessions.isEmpty else {
+                    throw StoreError.rolledBack(reason: "deck has active or interrupted practice session")
+                }
                 try raw.execute(
                     sql: "DELETE FROM card WHERE deck_id = ? AND id NOT IN (SELECT card_id FROM attempt)",
                     arguments: [id.rawValue]

@@ -39,7 +39,7 @@ docker run --rm \
     swift test --package-path Packages/RecallStore -Xswiftc -warnings-as-errors'
 ```
 
-Final output: **77 RecallRailKit tests + 54 RecallStore tests = 131 passing tests**, zero failures. Both commands compile production packages and execute their real tests. The new tests include service-level file-backed relaunch, smaller reboot uptime, backwards wall-clock changes, no duplicate attempts, pending cancellation, per-card timing, intersecting selection, stale retry, missing evidence, transaction rollback/retry, and lossless reference-date bit-exact round-trips preserving raw Double precision without IEEE-754 mantissa bit truncation.
+Final output: **77 RecallRailKit tests + 56 RecallStore tests = 133 passing tests**, zero failures (fresh Linux Docker rerun on 2026-10-08; log: `/home/rwrife/.hermes/cache/scratch/recallrail-oct8-tests.log`). The recovered follow-up also blocks deck deletion while a session is active or interrupted, with a regression proving the queued card survives until explicit abandonment. Both commands compile production packages and execute their real tests. The new tests include service-level file-backed relaunch, smaller reboot uptime, backwards wall-clock changes, no duplicate attempts, pending cancellation, per-card timing, intersecting selection, stale retry, missing evidence, transaction rollback/retry, and lossless reference-date bit-exact round-trips preserving raw Double precision without IEEE-754 mantissa bit truncation.
 
 ```bash
 bash scripts/check_project_contract.sh

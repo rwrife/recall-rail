@@ -4,6 +4,24 @@ import RecallRailKit
 @testable import RecallStore
 
 final class PracticeServiceTests: XCTestCase {
+    func testDeletingDeckCannotDiscardAnInterruptedQueue() throws {
+        let repo = RecallRepository(db: try RecallDatabase.openInMemory())
+        let deck = StoreFixtures.deck()
+        let card = StoreFixtures.card(deckID: deck.id)
+        try repo.saveDeck(deck)
+        try repo.saveCard(card)
+        var run = try PracticeService.start(repo: repo, deckID: deck.id,
+                                            selection: PracticeSelection(), mode: .tapReveal,
+                                            at: StoreFixtures.now, nanos: 0)
+        try run.interrupt(repo: repo, at: StoreFixtures.now, nanos: 10)
+        XCTAssertThrowsError(try repo.deleteDeck(id: deck.id))
+        XCTAssertEqual(try repo.session(id: run.session.id)?.cardOrder, [card.id])
+        XCTAssertNotNil(try repo.card(id: card.id))
+        try run.abandon(repo: repo, at: StoreFixtures.now)
+        try repo.deleteDeck(id: deck.id)
+        XCTAssertNil(try repo.deck(id: deck.id))
+    }
+
     func testMissingScheduleWithExistingHistoryNeverInventsFreshState() throws {
         let repo = RecallRepository(db: try RecallDatabase.openInMemory())
         let deck = StoreFixtures.deck()
