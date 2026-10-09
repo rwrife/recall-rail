@@ -50,11 +50,11 @@ final class CompactAccessibilityTests: XCTestCase {
         row.tap()
         app.buttons["deck-detail.practice"].tap()
         // Prove the accessibility size actually applied inside the app rather
-        // than trusting the launch argument. UIKit surfaces the raw category
-        // value; gate on the accessibility prefix, not an exact spelling.
+        // than trusting the launch argument. UIKit surfaces the abbreviated
+        // raw category value; assert the exact AX5 category.
         let probe = app.staticTexts["practice.size-category"]
         XCTAssertTrue(probe.waitForExistence(timeout: 10))
-        XCTAssertTrue(probe.label.contains("UICTContentSizeCategoryAccessibility"), probe.label)
+        XCTAssertEqual(probe.label, "UICTContentSizeCategoryAccessibilityXXXL", probe.label)
         tap(app, "practice.resume")
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "AX5 portrait practice"

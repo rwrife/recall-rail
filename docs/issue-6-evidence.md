@@ -13,18 +13,17 @@ Issue: [#6 Create the accessible PracticeWorkspaceLayout and future iPhone Duo s
    - Ordered pane intents keep upcoming cues, outline/due queue, grading, navigation, and permission controls on private surfaces; presentation surfaces are strictly limited to the active prompt, revealed answer, or speaker view.
    - Independent of `RecallRailKit`, `RecallStore`, database entities, and session timing. No fold SDK or hardware assumptions.
 
-2. **Compact iPhone accessibility & keyboard operability (`RecallRail/PracticeView.swift`):**
-   - Touch targets guaranteed at minimum 44x44pt via `PracticeControlStyle`, which preserves destructive role coloring (`systemRed`) for "Abandon session" while maintaining accessible contrast.
-   - `accessibilityAddTraits(.isHeader)` on prompt text.
-   - Accessibility custom action `"Reveal answer"` on the prompt view.
-   - Keyboard shortcuts: `r` for reveal, `1`/`2`/`3` for Again/Hard/Recalled, `Cmd+Z` for Undo, and `Return` for Next.
-   - State restoration and timer integrity preserved across layout presentation changes.
-   - Orientation settings updated in Debug and Release to allow portrait and landscape on iPhone (`UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight`).
+2. **Compact iPhone accessibility & keyboard surfaces (`RecallRail/PracticeView.swift`):**
+   - Shared `PracticeControlStyle` requests minimum 44pt button height and fills available width; the actual reachable hit regions await Apple simulator/device checks. Destructive "Abandon session" uses role-aware `systemRed` rather than losing its distinction.
+   - `accessibilityAddTraits(.isHeader)` on prompt text and a custom "Reveal answer" action. VoiceOver order/action activation requires device evidence.
+   - Shortcuts wired: `r` for reveal, `1`/`2`/`3` for Again/Hard/Recalled, `Cmd+Z` for Undo, and `Return` for Next. External hardware-keyboard operation has not been verified.
+   - State restoration and timer integrity preserved across layout presentation changes in the model test.
+   - Debug and Release project settings allow portrait and landscape on iPhone (`UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight`); actual rotation awaits Apple UI tests.
 
 3. **Structural and unit test coverage:**
-   - `RecallRailTests/PracticeWorkspaceTests.swift`: tests pane layout plans and verifies that switching layout presentations in `PracticeModel` retains the identical session, pending attempt, card, timing anchor, and database state across simulated transitions. Asserts elapsed time freezing (5000 ms measured) and resume timer segment restart (1000 ms foreground + 1000 ms additional = 2000 ms).
-   - `RecallRailUITests/CompactAccessibilityTests.swift`: native XCUITest proving effective Dynamic Type scaling via in-app category probe (`practice.size-category`), geometric window bounds check across portrait and landscape, preservation of revealed answer and pending grade across rotation, and resume after app termination.
-   - `scripts/tests/test_practice_workspace.py`: Python structural contract gate run in Linux CI verifying no session copying, no posture entanglement in `Packages`, strict accessibility/keyboard shortcuts, destructive role styling, and orientation settings.
+   - `RecallRailTests/PracticeWorkspaceTests.swift`: checks pane plans and model state across simulated intent changes, frozen grade timing, and resume timer segment restart (1000 ms foreground + 1000 ms additional = 2000 ms). This app-target test is Apple-CI-only and has not run on Linux.
+   - `RecallRailUITests/CompactAccessibilityTests.swift`: new Apple-only journey asserts exact effective AX5 Dynamic Type category through an in-app probe (`practice.size-category`), geometric window bounds after rotation, preservation of revealed answer and pending grade, and resume after termination. It has not run on Linux. An applied size category alone does not prove absence of clipping; screenshots will be attached only if Apple CI executes this test.
+   - `scripts/tests/test_practice_workspace.py`: Linux structural gate checks no session copying, no posture entanglement in `Packages`, source-level keyboard/accessibility wiring, destructive role styling, and orientation settings. These checks are not runtime accessibility proof.
    - Added `test_practice_workspace.py` step to `.github/workflows/ci.yml`.
 
 ## Evidence tiers
