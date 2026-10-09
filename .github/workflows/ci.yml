@@ -33,13 +33,15 @@ jobs:
       - name: Install SQLite headers for GRDB
         # GRDB 7 links SQLite through a systemLibrary target; the swift
         # container image does not ship the C headers.
-        run: apt-get update -qq && apt-get install -y -qq libsqlite3-dev
+        run: apt-get update -qq && apt-get install -y -qq libsqlite3-dev python3
       - name: Test RecallRailKit
         run: swift test --package-path Packages/RecallRailKit -Xswiftc -warnings-as-errors
       - name: Test RecallStore
         run: swift test --package-path Packages/RecallStore -Xswiftc -warnings-as-errors
       - name: Validate project contract
         run: bash scripts/check_project_contract.sh
+      - name: Test practice workspace structure
+        run: python3 scripts/tests/test_practice_workspace.py
       - name: Enforce zero-network architecture
         run: bash scripts/check_zero_network.sh
       - name: Enforce native-only implementation

@@ -44,6 +44,8 @@ A future `PracticeWorkspaceLayout` seam will support:
 
 When Apple ships supported dual-screen APIs, only the layout adapter should gain posture, hinge, and display-region awareness; the domain, scheduler, storage, and session state remain unchanged.
 
+`PracticeWorkspaceLayout.panes` currently describes compact private controls and two **simulated** future layouts. The companion/spanned pane plan reserves the outline, due queue, grading, navigation, and permission controls for a private surface; only the active prompt or speaker view may appear on a presentation surface. This is a presentation contract, not a second screen implementation: no hardware detection, posture API, or private-cue projection exists. `PracticeModel` owns the sole active session and timing anchors while pane intent changes, so layout transitions cannot independently advance a card or assert a grade. Use an Apple-supported API and real device evidence before exposing any multi-pane mode.
+
 ## Platform contract
 
 - Native Swift with SwiftUI/UIKit only.

@@ -23,6 +23,8 @@ final class PracticeModel {
     let repo: RecallRepository
     let deckID: StableID
     private let permission: any MicrophonePermissionRequesting
+    var workspace = PracticeWorkspaceLayout()
+    private let monotonicNow: () -> UInt64
     var run: PracticeService?
     var card: Card?
     var ledger: [Attempt] = []
@@ -33,13 +35,15 @@ final class PracticeModel {
     var permissionRequests = 0
 
     init(repo: RecallRepository, deckID: StableID,
-         permission: any MicrophonePermissionRequesting = SystemMicrophonePermission()) {
+         permission: any MicrophonePermissionRequesting = SystemMicrophonePermission(),
+         monotonicNow: @escaping () -> UInt64 = { DispatchTime.now().uptimeNanoseconds }) {
         self.repo = repo
         self.deckID = deckID
         self.permission = permission
+        self.monotonicNow = monotonicNow
     }
 
-    private var nanos: UInt64 { DispatchTime.now().uptimeNanoseconds }
+    private var nanos: UInt64 { monotonicNow() }
 
     func perform(_ operation: () throws -> Void) {
         do { try operation(); error = nil; try refresh() }
@@ -65,7 +69,12 @@ final class PracticeModel {
     func reveal() { perform { try run?.reveal(repo: repo) } }
     func grade(_ grade: Grade) { perform { try run?.grade(grade, repo: repo, at: Date(), nanos: nanos) } }
     func undo() { run?.undo() }
-    func next() { perform { try run?.next(repo: repo, nanos: nanos, at: Date()) } }
+    func next() {
+        perform {
+            try run?.next(repo: repo, nanos: nanos, at: Date())
+            workspace.showHint = false
+        }
+    }
     func interrupt() {
         perform { try run?.interrupt(repo: repo, at: Date(), nanos: nanos) }
         notice = "Pending grade canceled. Measured foreground time saved; background time is excluded."
@@ -81,6 +90,7 @@ final class PracticeModel {
                 try active.abandon(repo: repo, at: Date())
                 run = nil
             }
+            workspace.showHint = false
             card = nil
             due = nil
             mastery = nil
