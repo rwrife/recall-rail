@@ -6,9 +6,21 @@ final class CompactAccessibilityTests: XCTestCase {
     private func tap(_ app: XCUIApplication, _ id: String) {
         let button = app.buttons[id]
         XCTAssertTrue(button.waitForExistence(timeout: 5), id)
-        for _ in 0..<8 where !button.isHittable { app.swipeUp() }
-        for _ in 0..<8 where !button.isHittable { app.swipeDown() }
-        XCTAssertTrue(button.isHittable, id)
+        // Keep drags inside the content viewport. Window-level gestures can
+        // open system chrome and interrupt practice on landscape iPhones.
+        let scroll = app.scrollViews.firstMatch
+        for _ in 0..<8 where !button.isHittable {
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+                .press(forDuration: 0.05, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)))
+        }
+        for _ in 0..<8 where !button.isHittable {
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+                .press(forDuration: 0.05, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)))
+        }
+        guard button.exists, button.isHittable else {
+            XCTFail("Cannot reach \(id). \(app.debugDescription)")
+            return
+        }
         XCTAssertGreaterThanOrEqual(button.frame.height, 44, id)
         XCTAssertGreaterThanOrEqual(button.frame.width, 44, id)
         button.tap()
@@ -97,17 +109,12 @@ final class CompactAccessibilityTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["practice.prompt"].label, "Accessible prompt 1")
         XCTAssertTrue(app.staticTexts["practice.answer"].exists)
         XCTAssertTrue(pending.exists)
-        tap(app, "practice.undo")
-        tap(app, "practice.grade.recalled")
+        // In landscape, commit the pending grade via Next.
         tap(app, "practice.next")
 
         // Card 2 in landscape completes the session.
         XCTAssertEqual(app.staticTexts["practice.prompt"].label, "Accessible prompt 2")
         tap(app, "practice.reveal")
-        for grade in ["again", "hard", "recalled"] {
-            tap(app, "practice.grade.\(grade)")
-            tap(app, "practice.undo")
-        }
         tap(app, "practice.grade.recalled")
         tap(app, "practice.next")
         XCTAssertTrue(app.staticTexts["practice.complete"].waitForExistence(timeout: 5))

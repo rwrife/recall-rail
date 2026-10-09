@@ -5,8 +5,11 @@ final class PracticeJourneyTests: XCTestCase {
     private func tap(_ app: XCUIApplication, _ id: String) {
         let button = app.buttons[id]
         XCTAssertTrue(button.waitForExistence(timeout: 5))
-        for _ in 0..<5 where !button.isHittable { app.swipeUp() }
-        for _ in 0..<5 where !button.isHittable { app.swipeDown() }
+        // Scroll the practice content, not the application window: window-level
+        // swipes can open system chrome and interrupt the active session.
+        let scroll = app.scrollViews.firstMatch
+        for _ in 0..<5 where !button.isHittable { scroll.swipeUp() }
+        for _ in 0..<5 where !button.isHittable { scroll.swipeDown() }
         XCTAssertTrue(button.isHittable)
         button.tap()
     }
