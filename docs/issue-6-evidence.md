@@ -14,7 +14,7 @@ Issue: [#6 Create the accessible PracticeWorkspaceLayout and future iPhone Duo s
    - Independent of `RecallRailKit`, `RecallStore`, database entities, and session timing. No fold SDK or hardware assumptions.
 
 2. **Compact iPhone accessibility & keyboard operability (`RecallRail/PracticeView.swift`):**
-   - Touch targets guaranteed at minimum 44x44pt via `PracticeControlStyle`.
+   - Touch targets guaranteed at minimum 44x44pt via `PracticeControlStyle`, which preserves destructive role coloring (`systemRed`) for "Abandon session" while maintaining accessible contrast.
    - `accessibilityAddTraits(.isHeader)` on prompt text.
    - Accessibility custom action `"Reveal answer"` on the prompt view.
    - Keyboard shortcuts: `r` for reveal, `1`/`2`/`3` for Again/Hard/Recalled, `Cmd+Z` for Undo, and `Return` for Next.
@@ -22,9 +22,9 @@ Issue: [#6 Create the accessible PracticeWorkspaceLayout and future iPhone Duo s
    - Orientation settings updated in Debug and Release to allow portrait and landscape on iPhone (`UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight`).
 
 3. **Structural and unit test coverage:**
-   - `RecallRailTests/PracticeWorkspaceTests.swift`: tests pane layout plans and verifies that switching layout presentations in `PracticeModel` retains the identical session, pending attempt, card, timing anchor, and database state across simulated transitions.
-   - `RecallRailUITests/CompactAccessibilityTests.swift`: native XCUITest covering XXXL accessibility type scaling, portrait and landscape orientations, reveal/grade/undo/next journeys, and app termination/relaunch resume.
-   - `scripts/tests/test_practice_workspace.py`: Python structural contract gate run in Linux CI verifying no session copying, no posture entanglement in `Packages`, strict accessibility and keyboard shortcuts, and orientation settings.
+   - `RecallRailTests/PracticeWorkspaceTests.swift`: tests pane layout plans and verifies that switching layout presentations in `PracticeModel` retains the identical session, pending attempt, card, timing anchor, and database state across simulated transitions. Asserts elapsed time freezing (5000 ms measured) and resume timer segment restart (1000 ms foreground + 1000 ms additional = 2000 ms).
+   - `RecallRailUITests/CompactAccessibilityTests.swift`: native XCUITest proving effective Dynamic Type scaling via in-app category probe (`practice.size-category`), geometric window bounds check across portrait and landscape, preservation of revealed answer and pending grade across rotation, and resume after app termination.
+   - `scripts/tests/test_practice_workspace.py`: Python structural contract gate run in Linux CI verifying no session copying, no posture entanglement in `Packages`, strict accessibility/keyboard shortcuts, destructive role styling, and orientation settings.
    - Added `test_practice_workspace.py` step to `.github/workflows/ci.yml`.
 
 ## Evidence tiers
@@ -39,6 +39,8 @@ Issue: [#6 Create the accessible PracticeWorkspaceLayout and future iPhone Duo s
   - `python3 scripts/tests/test_practice_workspace.py`: 5 passed, 0 failures.
   - `actionlint`: PASS (clean workflow syntax).
   - `swiftc -frontend -parse`: all new and modified Swift files parse cleanly.
+- **Independent read-only review:**
+  - Round 1 FAIL addressed: rotation window geometry asserted, pending-grade preservation across rotation proved, destructive button role styling restored, and Dynamic Type proven via in-app category probe. Round 2 pending fresh verdict.
 - **macOS / iOS native simulator build and tests:**
   - Deferred to Apple CI runner (`macos-15`, Xcode 26.0.1, iOS 26 SDK).
-  - Linux checks cannot build or test the native iPhone app.
+  - Linux checks cannot build or test the native iPhone app. VoiceOver auditory narration and physical motion reduction are Apple-runner/device properties, not local Linux results.

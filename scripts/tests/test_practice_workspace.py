@@ -28,6 +28,14 @@ class WorkspaceStructureTests(unittest.TestCase):
         self.assertIn('.accessibilityAddTraits(.isHeader)', source)
         self.assertNotIn('.animation(', source)
         self.assertNotIn('.foregroundStyle(.red)', source)
+        # The shared control style must keep destructive role distinction.
+        style = source[source.index('struct PracticeControlStyle'):]
+        self.assertIn('configuration.role == .destructive', style)
+        self.assertIn('systemRed', style)
+        # The Dynamic Type journey needs an in-app effective-size probe.
+        self.assertIn('--rr-size-probe', source)
+        self.assertIn('preferredContentSizeCategory', source)
+        self.assertIn('practice.size-category', source)
         # Identifiers belong to leaf controls/text, never workspace containers.
         self.assertNotIn('.accessibilityIdentifier("practice.workspace")', source)
         self.assertLess(source.index('Text(card.prompt)'), source.index('Text(card.answer)'))

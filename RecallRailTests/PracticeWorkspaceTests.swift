@@ -66,5 +66,10 @@ final class PracticeWorkspaceTests: XCTestCase {
         XCTAssertEqual(model.run?.session.cursor, 1)
         XCTAssertEqual(model.run?.session.isRevealed, true)
         XCTAssertNil(model.run?.pending)
+        // Resume retains measured foreground time (1000 ms) and restarts the
+        // uncheckpointed segment: one more second foreground grades at 2000 ms.
+        nanos = 11_000_000_000
+        model.grade(.hard)
+        XCTAssertEqual(model.run?.pending?.elapsedMilliseconds, 2_000)
     }
 }

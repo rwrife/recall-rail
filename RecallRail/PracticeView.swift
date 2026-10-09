@@ -1,8 +1,13 @@
 import SwiftUI
+import UIKit
 import RecallRailKit
 import RecallStore
 
 struct PracticeView: View {
+    /// UI-journey seam only: renders the *effective* content size category so
+    /// an accessibility-size test proves the setting applied instead of
+    /// trusting a launch argument. Production launches never pass the flag.
+    private static let sizeProbeEnabled = CommandLine.arguments.contains("--rr-size-probe")
     @State private var model: PracticeModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var dueOnly = true
@@ -17,6 +22,10 @@ struct PracticeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                if Self.sizeProbeEnabled {
+                    Text(UIApplication.shared.preferredContentSizeCategory.rawValue)
+                        .accessibilityIdentifier("practice.size-category")
+                }
                 if model.run == nil {
                     Toggle("Due cards only", isOn: $dueOnly)
                     TextField("Required tags (comma separated)", text: $tags)
@@ -135,7 +144,9 @@ private struct PracticeControlStyle: ButtonStyle {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, minHeight: 44)
-            .foregroundStyle(.primary)
+            .foregroundStyle(configuration.role == .destructive
+                ? AnyShapeStyle(Color(uiColor: .systemRed))
+                : AnyShapeStyle(Color.primary))
             .background(configuration.isPressed ? Color(uiColor: .tertiarySystemFill) : Color(uiColor: .secondarySystemBackground))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary, lineWidth: 1))
             .contentShape(Rectangle())
