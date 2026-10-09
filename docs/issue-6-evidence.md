@@ -43,3 +43,22 @@ Issue: [#6 Create the accessible PracticeWorkspaceLayout and future iPhone Duo s
 - **macOS / iOS native simulator build and tests:**
   - Deferred to Apple CI runner (`macos-15`, Xcode 26.0.1, iOS 26 SDK).
   - Linux checks cannot build or test the native iPhone app. VoiceOver auditory narration and physical motion reduction are Apple-runner/device properties, not local Linux results.
+
+## Manual iPhone accessibility evidence gate (required before release claims)
+
+Real VoiceOver narration, external hardware keyboards, Increase Contrast, and
+Reduce Motion cannot be driven by XCUITest on iPhone and are NOT claimed as
+verified by this slice. A human must complete this matrix on a physical iPhone
+after the exact head ships a build, and append results here (device/OS/head
+SHA/settings/outcome per row). Issue #7 release evidence must cite it.
+
+| # | Check | Settings | Expected | Device/OS/Head | Result |
+|---|-------|----------|----------|----------------|--------|
+| 1 | One-handed reachability of prompt/reveal/grade | Default, AX5 | Primary actions reachable with thumb in portrait and landscape | | pending |
+| 2 | VoiceOver reading order | VoiceOver on, AX5 | Card count → prompt (header) → hint → answer → grades → pending controls; no leaked private-cue text | | pending |
+| 3 | VoiceOver custom action | VoiceOver on | "Reveal answer" rotor action on the prompt activates reveal | | pending |
+| 4 | Hardware keyboard shortcuts | Connected keyboard | `r`, `1`/`2`/`3`, `Cmd+Z`, `Return` drive reveal/grade/undo/next | | pending |
+| 5 | Interruption/resume | VoiceOver on | Background/foreground cancels pending grade with the notice on resume | | pending |
+| 6 | Increase Contrast | Increase Contrast On | Grade and destructive controls remain distinguishable | | pending |
+| 7 | Reduce Motion | Reduce Motion On | No motion regressions (app declares no animations; structural gate enforces) | | pending |
+| 8 | Text clipping sweep | AX5, portrait + landscape | No clipped prompt/answer/notice text (screenshots attached) | | pending |
