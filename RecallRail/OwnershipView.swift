@@ -16,6 +16,7 @@ struct OwnershipDocument: FileDocument {
 
 struct OwnershipView: View {
     @Bindable var library: DeckLibrary
+    @State private var exportDecks: [Deck] = []
     @State private var document: OwnershipDocument?
     @State private var exportType: UTType = .json
     @State private var filename = "RecallRail"
@@ -34,6 +35,10 @@ struct OwnershipView: View {
     private func export(_ data: Data, type: UTType, name: String) {
         document = OwnershipDocument(data: data); exportType = type; filename = name; exporting = true
     }
+    private func refreshExportDecks() {
+        exportDecks = []
+        perform { exportDecks = try library.ownershipExportDecks() }
+    }
     private func refreshPreview() {
         preview = nil
         guard let imported else { return }
@@ -48,7 +53,7 @@ struct OwnershipView: View {
                 Button("Export decks CSV") {
                     perform { export(Data(try library.repo.decksCSV().utf8), type: .commaSeparatedText, name: "RecallRail-decks") }
                 }.accessibilityIdentifier("ownership.decks")
-                ForEach(library.decks) { deck in
+                ForEach(exportDecks) { deck in
                     Button("Export cards: \(deck.title)") {
                         perform { export(Data(try library.exportCSV(deckID: deck.id).utf8), type: .commaSeparatedText, name: "RecallRail-cards") }
                     }.accessibilityIdentifier("ownership.cards.\(deck.id.rawValue)")
@@ -82,6 +87,7 @@ struct OwnershipView: View {
             if let message { Text(message).accessibilityIdentifier("ownership.message") }
         }
         .navigationTitle("Data and privacy")
+        .task { refreshExportDecks() }
         .fileExporter(isPresented: $exporting, document: document, contentType: exportType, defaultFilename: filename) { result in
             switch result {
             case .success: message = "Export saved."
@@ -104,14 +110,14 @@ struct OwnershipView: View {
                 perform {
                     guard let preview else { throw OwnershipError.invalid("Preview missing") }
                     try library.repo.restore(preview)
-                    self.preview = nil; imported = nil; library.reload(); message = "Restore complete."
+                    self.preview = nil; imported = nil; library.reload(); refreshExportDecks(); message = "Restore complete."
                 }
             }
         } message: { Text("A changed local database invalidates this preview. Replace permanently removes current local records.") }
         .confirmationDialog("Permanently delete all local records?", isPresented: $confirmDelete) {
             Button("Delete everything", role: .destructive) {
                 perform {
-                    defer { library.reload(); preview = nil; imported = nil; document = nil }
+                    defer { library.reload(); refreshExportDecks(); preview = nil; imported = nil; document = nil }
                     try library.repo.eraseLocalRecords()
                     message = "All local records deleted. Exported copies and device backups remain under your control."
                 }

@@ -33,10 +33,20 @@ run_private() {
   rm "$private/output"
   if [ "$status" -ne 0 ]; then echo "release_${category}_failed"; exit 1; fi
 }
-run_private archive xcodebuild -project RecallRail.xcodeproj -scheme RecallRail -configuration Release -destination 'generic/platform=iOS' -archivePath "$private/RecallRail.xcarchive" CURRENT_PROJECT_VERSION="$build" DEVELOPMENT_TEAM="$ASC_TEAM_ID" -allowProvisioningUpdates -authenticationKeyPath "$key" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" archive
+marketing=$(python3 - <<'PYMARKETING'
+import re
+text=open('RecallRail.xcodeproj/project.pbxproj').read()
+values=set(re.findall(r'MARKETING_VERSION = ([0-9.]+);',text))
+assert len(values)==1
+print(values.pop())
+PYMARKETING
+)
+run_private monotonic python3 scripts/release_support.py monotonic "$key" "$build" "$marketing"
+run_private archive xcodebuild -project RecallRail.xcodeproj -scheme RecallRail -configuration Release -destination 'generic/platform=iOS' -archivePath "$private/RecallRail.xcarchive" CURRENT_PROJECT_VERSION="$build" CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution" DEVELOPMENT_TEAM="$ASC_TEAM_ID" -allowProvisioningUpdates -authenticationKeyPath "$key" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" archive
 app="$private/RecallRail.xcarchive/Products/Applications/RecallRail.app"
 run_private signature codesign --verify --deep --strict "$app"
 python3 scripts/release_support.py verify "$app" > ReleaseEvidence/archive-verification.txt 2> "$private/verify-output"
+run_private monotonic_preupload python3 scripts/release_support.py monotonic "$key" "$build" "$marketing"
 since=$(date +%s)
 run_private upload xcodebuild -exportArchive -archivePath "$private/RecallRail.xcarchive" -exportOptionsPlist "$private/ExportOptions.plist" -exportPath "$private/export" -allowProvisioningUpdates -authenticationKeyPath "$key" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 python3 scripts/release_support.py poll "$key" "$build" "$since" ReleaseEvidence/processed-build.json 2> "$private/poll-output"

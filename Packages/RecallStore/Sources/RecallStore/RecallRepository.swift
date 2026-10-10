@@ -497,8 +497,13 @@ public struct RecallRepository: Sendable {
         let rowCardID: String = row["card_id"]
         let rowDeckID: String = row["deck_id"]
         let text: String = row["record"]
-        guard let data = text.data(using: .utf8),
+        guard (try? OwnershipSchema.validate(text, kind: "attempt")) != nil,
+              let data = text.data(using: .utf8),
               let attempt = try? JSONDecoder.domain.decode(Attempt.self, from: data),
+              OwnershipSchema.scheduleValid(attempt.beforeSchedule),
+              OwnershipSchema.scheduleValid(attempt.afterSchedule),
+              attempt.monotonicEndNanos >= attempt.monotonicStartNanos,
+              UInt64(attempt.elapsedMilliseconds) == (attempt.monotonicEndNanos - attempt.monotonicStartNanos) / 1_000_000,
               attempt.cardID.rawValue == rowCardID,
               attempt.deckID.rawValue == rowDeckID
         else { return nil }

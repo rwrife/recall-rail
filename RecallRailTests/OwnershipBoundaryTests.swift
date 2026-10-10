@@ -12,6 +12,19 @@ final class OwnershipBoundaryTests: XCTestCase {
         try queue.close()
         XCTAssertThrowsError(try library.exportCSV(deckID: StableID()))
     }
+    func testOwnershipDeckQueryIncludesArchivedDeckAndPropagatesErrors() throws {
+        let queue = try RecallDatabase.openInMemory()
+        let repo = RecallRepository(db: queue)
+        let now = Date()
+        let deck = Deck(title: "Archived export", isArchived: true, createdAt: now, updatedAt: now)
+        try repo.saveDeck(deck)
+        try repo.saveCard(Card(deckID: deck.id, prompt: "Archived prompt", answer: "Answer", isArchived: true, createdAt: now, updatedAt: now))
+        let library = DeckLibrary(repo: repo)
+        XCTAssertEqual(try library.ownershipExportDecks(), [deck])
+        XCTAssertTrue(try library.exportCSV(deckID: deck.id).contains("Archived prompt"))
+        try queue.close()
+        XCTAssertThrowsError(try library.ownershipExportDecks())
+    }
     func testProductionDocumentContainsCompleteBackupBytes() throws {
         let repo = RecallRepository(db: try RecallDatabase.openInMemory())
         let now = Date()

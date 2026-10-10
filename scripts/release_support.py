@@ -69,6 +69,41 @@ def jwt(key_file):
     return (message + b'.' + b64(signature)).decode()
 
 
+def build_components(value):
+    import re
+    if not re.fullmatch(r'[0-9]+(?:\.[0-9]+){0,2}', value):
+        raise ValueError('build format category failed')
+    parts = tuple(int(part, 10) for part in value.split('.'))
+    return parts + (0,) * (3 - len(parts))
+
+
+def require_monotonic(key_file, build, marketing):
+    candidate = build_components(build)
+    token = jwt(key_file)
+    def get(url):
+        if not url.startswith('https://api.appstoreconnect.apple.com/'):
+            raise ValueError('pagination category failed')
+        request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + token})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)
+    apps = get('https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=com.infinityball.recallrail')['data']
+    if len(apps) != 1:
+        raise ValueError('app match category failed')
+    from urllib.parse import quote
+    url = ('https://api.appstoreconnect.apple.com/v1/builds?filter[app]=' + quote(apps[0]['id'], safe='')
+           + '&filter[preReleaseVersion.version]=' + quote(marketing, safe='') + '&limit=200')
+    visited = set()
+    while url:
+        if url in visited:
+            raise ValueError('pagination cycle category failed')
+        visited.add(url)
+        page = get(url)
+        for record in page['data']:
+            if candidate <= build_components(record['attributes']['version']):
+                raise ValueError('nonmonotonic build category failed')
+        url = page.get('links', {}).get('next')
+
+
 def poll(key_file, build, since, output):
     # API token and identity values remain in memory; no HTTP errors/bodies are logged.
     deadline = time.monotonic() + 1200
@@ -102,7 +137,7 @@ def poll(key_file, build, since, output):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('operation', choices=['sanitize', 'verify', 'poll'])
+    parser.add_argument('operation', choices=['sanitize', 'verify', 'poll', 'monotonic'])
     parser.add_argument('paths', nargs='+')
     args = parser.parse_args()
     try:
@@ -110,6 +145,8 @@ def main():
             print(json.dumps(sanitize(pathlib.Path(args.paths[0]).read_text(errors='replace')), sort_keys=True))
         elif args.operation == 'verify':
             verify_app(args.paths[0]); print('archive_metadata_verified')
+        elif args.operation == 'monotonic':
+            require_monotonic(*args.paths); print('build_monotonic_verified')
         else:
             poll(args.paths[0], args.paths[1], float(args.paths[2]), args.paths[3]); print('processing_valid')
     except Exception:

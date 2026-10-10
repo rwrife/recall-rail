@@ -20,6 +20,20 @@ class SanitizerTests(unittest.TestCase):
     def test_unknown_output_is_not_copied(self):
         self.assertTrue(all(count == 0 for count in module.sanitize('unexpected sensitive identity').values()))
 
+class MonotonicTests(unittest.TestCase):
+    def test_decimal_components(self):
+        self.assertGreater(module.build_components('42.10'), module.build_components('42.9'))
+        self.assertEqual(module.build_components('42.01'), module.build_components('42.1.0'))
+        for value in ['42.x', '-1', '1.2.3.4', '1e2']:
+            with self.assertRaises(ValueError): module.build_components(value)
+    def test_same_marketing_version_paginated_and_fail_closed(self):
+        responses = [BytesIO(json.dumps({'data':[{'id':'app'}]}).encode()),
+                     BytesIO(json.dumps({'data':[{'attributes':{'version':'42.9'}}], 'links':{'next':'https://api.appstoreconnect.apple.com/next'}}).encode()),
+                     BytesIO(json.dumps({'data':[{'attributes':{'version':'42.10'}}]}).encode())]
+        with patch.object(module, 'jwt', return_value='SECRET'), patch.object(module.urllib.request, 'urlopen', side_effect=responses) as get:
+            with self.assertRaises(ValueError): module.require_monotonic('key', '42.10', '1.0')
+            self.assertIn('filter[preReleaseVersion.version]=1.0', get.call_args_list[1].args[0].full_url)
+
 class ProcessingTests(unittest.TestCase):
     def response(self, data): return BytesIO(json.dumps(data).encode())
     def build(self, state='VALID', version='42.2', uploaded='2026-10-10T10:00:00Z'):

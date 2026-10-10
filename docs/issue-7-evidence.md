@@ -1,5 +1,29 @@
 # Issue #7 candidate evidence
 
+## Current reviewer-fix snapshot (2026-10-10)
+
+The parent supplied committed/pushed candidate `30f15234b5eacb45cb09446c71d58afa7eabfde2` and draft PR #14. This single writer changed only the dedicated issue-7 worktree; no commit, push, PR operation, merge, workflow dispatch, signing or upload was performed during this fix pass. The supplied verdict refers to tree `5b51d3ba3b4137f0e3b2a4368321a798f399202a`; it is reviewer input, not independently executed verification of this snapshot. Prior main CI does not verify this candidate or these staged fixes.
+
+Nested deck/card/session/schedule schemas now reject unknown keys before Decodable can ignore them. IDs retain their actual single-string wire format; unexpected nested ID objects reject. Domain dates accept existing lossless `ref:` bit-pattern strings and legacy epoch numbers without re-encoding raw records, with finite ±1e12 epoch-second bounds. Sort order, recall count, cursor and elapsed milliseconds are bounded to 0...1e9. Decodable enforces UInt64 clock bounds and required fields. Nested attempt schemas/bounds determine readability; malformed attempts remain byte-identical raw corrupt evidence with original flags during private validation/restore. Their grades/timing are never fabricated. The normal attempt read/mastery path applies the same schema and timing validation, preventing private restored unknown fields from becoming readable grades.
+
+Before archive signing, and again immediately before upload, the release script reads all paginated ASC builds for the same marketing version and fails if candidate numeric components are less than or equal to any prior build. Decimal components compare as integers, with trailing zero equivalence. API/authentication/pagination errors fail closed with fixed diagnostics. Archive explicitly requests `CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution"`; existing distribution profile/entitlement checks still apply. Actual ASC/signing behavior remains unexecuted. [Apple documents the marketing-version build filter](https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds).
+
+### Legacy privacy blocker is explicitly retained
+
+[Apple reason 35F9.1](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype) permits off-device elapsed time between in-app events; it does not permit full boot anchors. Newly constructed attempts/sessions carry `clockProvenance: appOriginElapsedV1`: anchors are elapsed intervals from initialization of the app clock origin to an app event. Missing provenance stays unknown on decode/resume/restore; it is never inferred from small numeric values. Public JSON backup and raw attempt CSV now fail atomically for legacy or unclassifiable records, including corrupt raw attempts whose clock content cannot be proven safe. Deck/card CSV remains available. No stored row is rewritten, dropped or normalized. Previously created files are outside this gate. Ordinary OS-managed device backups remain outside the application export implementation and need Apple assessment.
+
+This deliberately leaves complete-history backup for legacy/corrupt data unavailable. The error explains the gate and preservation policy; deleting history is not a recommended workaround. A version-3 duration-only export would change raw history and restore semantics and has NOT been authorized or implemented. No claim of a resolved complete-history privacy policy or issue completion is made. Apple/privacy acceptance and a safe authorized legacy-history policy remain blockers before distribution.
+
+Ownership export choices now come from a fresh throwing `allDecks(includeArchived: true)` query when the screen opens, with refresh after restore/delete and errors surfaced. Native boundary tests cover archived deck/card contents and closed-store errors; a production-navigation UI test covers reaching the archived deck export sheet. Those native tests have only been parsed here. No generic ancestor accessibility identifiers were added. Linux CI already installs `libssl-dev` for the LinuxSHA C shim; this was verified rather than changed.
+
+### Fix-pass verification
+
+Docker image `recall-rail-issue7-ci`, nonroot UID/GID 1001, container `HOME=/tmp`, container `/tmp` Swift scratch; host HOME was untouched. The hostile nested schema test initially failed with four missed rejections; the legacy clock test initially failed three export assertions; the release-number tests initially failed because the helper did not exist. A first schema implementation incorrectly expected object-shaped IDs, and its failing run was corrected to the actual string representation.
+
+Final exact working-source checks at 2026-10-10 11:28 UTC: RecallStore **74 tests passed**, including **18 ownership tests**; RecallRailKit **77 passed**, both with warnings as errors. Swift frontend parse of app/native/UI sources passed; this is syntax only. Release helper **7 tests passed**; structural/mutation/schema suites **12 passed**. Project contract, zero-network plus self-test, native-only, release shell syntax and diff whitespace checks passed. Concise captured output is in `issue-7-fix-verification.txt`. All fix files are staged for parent review; no commit was created. Parent owns fresh independent review and native CI. Exact-tree Apple UI/build/signing/upload and a matching processed VALID TestFlight build remain pending.
+
+## Historical initial-candidate evidence (superseded where above differs)
+
 This is an uncommitted implementation candidate in the dedicated issue-7 worktree. No commit, push, PR, merge, tag, release dispatch, external annotation, secret lookup, signing, upload, or TestFlight claim was made. Independent parent review and Apple verification remain required.
 
 ## Ownership implementation

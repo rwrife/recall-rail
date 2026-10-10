@@ -41,6 +41,79 @@ final class OwnershipTests: XCTestCase {
         XCTAssertTrue(empty.tables.values.allSatisfy { $0.isEmpty })
         XCTAssertEqual(try target.db.rawInt("PRAGMA secure_delete"), 1)
     }
+    func testHostileNestedSchemasAndBounds() throws {
+        let original = try BackupCodec.decode(fixture().backupJSON())
+        for table in ["deck", "card"] {
+            var payload = original
+            var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(payload.tables[table]![0].strings["record"]!.utf8)) as? [String: Any])
+            object["unknown"] = true
+            payload.tables[table]![0].strings["record"] = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+            XCTAssertThrowsError(try BackupCodec.encode(payload))
+            object.removeValue(forKey: "unknown")
+            object["id"] = ["rawValue": payload.tables[table]![0].strings["id"]!, "unknown": true]
+            payload.tables[table]![0].strings["record"] = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+            XCTAssertThrowsError(try BackupCodec.encode(payload))
+        }
+        for state in [ScheduleState(box: 1, dueAt: Date(timeIntervalSince1970: 1e13), algorithmVersion: 1), ScheduleState(box: 1, dueAt: StoreFixtures.now, consecutiveRecalls: Int.max, algorithmVersion: 1)] {
+            var payload = original
+            payload.tables["card"]![0].strings["schedule"] = try Snapshots.canonicalPayload(state)
+            XCTAssertThrowsError(try BackupCodec.encode(payload))
+        }
+        var payload = original
+        payload.tables["card"]![0].strings["schedule"] = "{\"box\":1,\"dueAt\":{\"referenceSeconds\":0,\"unknown\":1},\"consecutiveRecalls\":0,\"algorithmVersion\":1}"
+        XCTAssertThrowsError(try BackupCodec.encode(payload))
+    }
+    func testLegacyAndUnknownClockRecordsBlockExportsWithoutMutation() throws {
+        let repo = try fixture()
+        let card = try repo.cards(deckID: repo.allDecks()[0].id)[0]
+        let before = ScheduleState.initial(at: StoreFixtures.now, algorithmVersion: 1)
+        let attempt = Attempt(cardID: card.id, deckID: card.deckID, timestamp: StoreFixtures.now, monotonicStartNanos: 100, monotonicEndNanos: 200, grade: .again, mode: .tapReveal, beforeSchedule: before, afterSchedule: before, algorithmVersion: 1)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(try Snapshots.canonicalPayload(attempt).utf8)) as? [String: Any])
+        object.removeValue(forKey: "clockProvenance")
+        let legacy = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+        try repo.db.rawExecute("INSERT INTO attempt(id,card_id,deck_id,timestamp,record,schema_ok) VALUES (?,?,?,?,?,1)", [attempt.id.rawValue, card.id.rawValue, card.deckID.rawValue, StoreFixtures.now.timeIntervalSince1970, legacy])
+        let snapshot = try repo.db.read { try BackupCodec.read($0) }
+        XCTAssertThrowsError(try repo.backupJSON())
+        XCTAssertThrowsError(try repo.attemptsCSV())
+        XCTAssertEqual(try repo.db.read { try BackupCodec.read($0) }, snapshot)
+        let target = RecallRepository(db: try RecallDatabase.openInMemory())
+        let privateBytes = try BackupCodec.encode(snapshot)
+        try target.restore(target.previewRestore(privateBytes, mode: .replace))
+        XCTAssertEqual(try target.db.read { try BackupCodec.read($0) }, snapshot)
+        XCTAssertThrowsError(try target.backupJSON())
+    }
+    func testSessionUnknownsAndNestedDateBounds() throws {
+        let repo = try fixture()
+        let card = try repo.cards(deckID: repo.allDecks()[0].id)[0]
+        let session = StudySession(deckID: card.deckID, cardOrder: [card.id], mode: .tapReveal, startedAt: StoreFixtures.now, monotonicStartNanos: 0, monotonicCheckpointNanos: 0)
+        try repo.saveSession(session)
+        let original = try BackupCodec.decode(repo.backupJSON())
+        for key in ["unknown", "startedAt", "clockProvenance"] {
+            var payload = original
+            var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(payload.tables["session"]![0].strings["record"]!.utf8)) as? [String: Any])
+            object[key] = key == "startedAt" ? "ref:" + String(Double(1e13).bitPattern, radix: 16) : "unknown"
+            payload.tables["session"]![0].strings["record"] = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+            XCTAssertThrowsError(try BackupCodec.encode(payload))
+        }
+    }
+    func testUnknownAttemptFieldsRemainCorruptAfterPrivateRestore() throws {
+        let repo = try fixture()
+        let card = try repo.cards(deckID: repo.allDecks()[0].id)[0]
+        let state = ScheduleState.initial(at: StoreFixtures.now, algorithmVersion: 1)
+        let attempt = Attempt(cardID: card.id, deckID: card.deckID, timestamp: StoreFixtures.now, monotonicStartNanos: 0, monotonicEndNanos: 1_000_000, grade: .again, mode: .tapReveal, beforeSchedule: state, afterSchedule: state, algorithmVersion: 1)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(try Snapshots.canonicalPayload(attempt).utf8)) as? [String: Any])
+        object["unknown"] = true
+        let text = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+        try repo.db.rawExecute("INSERT INTO attempt(id,card_id,deck_id,timestamp,record,schema_ok) VALUES (?,?,?,?,?,1)", [attempt.id.rawValue, card.id.rawValue, card.deckID.rawValue, StoreFixtures.now.timeIntervalSince1970, text])
+        let bytes = try repo.db.read { try BackupCodec.encode(BackupCodec.read($0)) }
+        let target = RecallRepository(db: try RecallDatabase.openInMemory())
+        let preview = try target.previewRestore(bytes, mode: .replace)
+        XCTAssertEqual(preview.corruptEvidenceCount, 1)
+        try target.restore(preview)
+        XCTAssertThrowsError(try target.attempts(cardID: card.id))
+        XCTAssertThrowsError(try target.backupJSON())
+        XCTAssertEqual(try target.db.read { try BackupCodec.encode(BackupCodec.read($0)) }, bytes)
+    }
     func testSHA256KnownVector() {
         XCTAssertEqual(BackupCodec.checksum(Data("abc".utf8)), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
     }
@@ -57,23 +130,23 @@ final class OwnershipTests: XCTestCase {
         let card = try XCTUnwrap(repo.cards(deckID: repo.allDecks()[0].id).first)
         let id = UUID().uuidString
         try repo.db.rawExecute("INSERT INTO attempt(id,card_id,deck_id,timestamp,record,schema_ok) VALUES (?,?,?,?,?,0)", [id, card.id.rawValue, card.deckID.rawValue, 1.0, "broken { evidence"])
-        let payload = try BackupCodec.decode(repo.backupJSON())
+        let payload = try BackupCodec.decode(repo.db.read { try BackupCodec.encode(BackupCodec.read($0)) })
         let prior = try BackupCodec.encode(payload, version: 1)
         let target = RecallRepository(db: try RecallDatabase.openInMemory())
         try target.restore(target.previewRestore(prior, mode: .replace))
-        XCTAssertEqual(try BackupCodec.decode(target.backupJSON()), payload)
+        XCTAssertEqual(try BackupCodec.decode(target.db.read { try BackupCodec.encode(BackupCodec.read($0)) }), payload)
         XCTAssertThrowsError(try target.db.rawExecute("DELETE FROM attempt"))
     }
     func testUnflaggedUndecodableEvidenceIsPreservedNotReclassified() throws {
         let source = try fixture()
         let card = try source.cards(deckID: source.allDecks()[0].id)[0]
         try source.db.rawExecute("INSERT INTO attempt(id,card_id,deck_id,timestamp,record,schema_ok) VALUES (?,?,?,?,?,1)", [UUID().uuidString, card.id.rawValue, card.deckID.rawValue, 1.0, "not JSON"])
-        let bytes = try source.backupJSON()
+        let bytes = try source.db.read { try BackupCodec.encode(BackupCodec.read($0)) }
         let target = RecallRepository(db: try RecallDatabase.openInMemory())
         let preview = try target.previewRestore(bytes, mode: .replace)
         XCTAssertEqual(preview.corruptEvidenceCount, 1)
         try target.restore(preview)
-        XCTAssertEqual(try target.backupJSON(), bytes)
+        XCTAssertEqual(try target.db.read { try BackupCodec.encode(BackupCodec.read($0)) }, bytes)
         XCTAssertThrowsError(try target.attempts(cardID: card.id))
         XCTAssertEqual(try target.db.rawInt("SELECT schema_ok FROM attempt"), 1)
     }

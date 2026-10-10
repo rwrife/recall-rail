@@ -11,6 +11,8 @@ class OwnershipStructureTests(unittest.TestCase):
             self.assertIn(token, source)
         for ancestor in ['ownership.form', 'ownership.container', 'ownership.view']:
             self.assertNotIn(f'.accessibilityIdentifier("{ancestor}")', source)
+        self.assertIn('try library.ownershipExportDecks()', source)
+        self.assertIn('ForEach(exportDecks)', source)
         export = (ROOT/'RecallRail/DeckLibrary.swift').read_text().split('func exportCSV')[1]
         self.assertIn('throws -> String', export)
         self.assertNotIn('try?', export)
@@ -34,6 +36,10 @@ class OwnershipStructureTests(unittest.TestCase):
         release = (ROOT/'scripts/testflight_release.sh').read_text()
         for token in ['set +x', 'umask 077', 'mktemp -d', '-exportArchive', "'destination':'upload'", "'method':'app-store-connect'", '${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}']:
             self.assertIn(token, release)
+        self.assertIn('CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution"', release)
+        self.assertLess(release.index('run_private monotonic'), release.index('run_private archive'))
+        self.assertLess(release.index('run_private monotonic_preupload'), release.index('run_private upload'))
+        self.assertIn('libssl-dev', (ROOT/'.github/workflows/ci.yml').read_text())
         for forbidden in ['altool', 'fastlane', 'tee ']: self.assertNotIn(forbidden, release)
         self.assertIn("state == 'VALID'", (ROOT/'scripts/release_support.py').read_text())
 if __name__ == '__main__': unittest.main()

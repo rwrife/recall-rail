@@ -77,6 +77,28 @@ final class OwnershipJourneyTests: XCTestCase {
         XCTAssertTrue(message.label.contains("All local records deleted"))
     }
 
+    func testArchivedDeckCardExportIsReachable() {
+        let app = XCUIApplication(); app.launch()
+        app.buttons["deck-list.create"].tap()
+        let title = "Archived ownership \(UUID().uuidString)"
+        app.textFields["deck-editor.title"].tap()
+        app.textFields["deck-editor.title"].typeText(title)
+        app.buttons["deck-editor.save"].tap()
+        let row = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'deck-row.' AND label CONTAINS %@", title)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        let deckID = String(row.identifier.dropFirst("deck-row.".count))
+        row.swipeLeft()
+        app.buttons["Archive"].tap()
+        let ownership = app.buttons["deck-list.ownership"]
+        for _ in 0..<8 where !ownership.isHittable { app.swipeUp() }
+        ownership.tap()
+        let export = app.buttons["ownership.cards.\(deckID)"]
+        XCTAssertTrue(export.waitForExistence(timeout: 10))
+        export.tap()
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 10))
+        app.buttons["Cancel"].tap()
+    }
+
     func testCSVExportOpensSystemDestination() {
         let app = XCUIApplication(); app.launch()
         let ownership = app.buttons["deck-list.ownership"]

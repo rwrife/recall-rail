@@ -115,10 +115,12 @@ public enum BackupCodec {
             indexed[table] = rows
         }
         func decode<T: Decodable>(_ row: BackupRow, _ type: T.Type, column: String = "record") throws -> T {
-            try JSONDecoder.domain.decode(type, from: Data(row.strings[column]!.utf8))
+            let kind = column == "schedule" ? "schedule" : (type == Deck.self ? "deck" : type == Card.self ? "card" : "session")
+            try OwnershipSchema.validate(row.strings[column]!, kind: kind)
+            return try JSONDecoder.domain.decode(type, from: Data(row.strings[column]!.utf8))
         }
         func scheduleValid(_ value: ScheduleState) -> Bool {
-            (1...SchedulingRules.maxBox).contains(value.box) && value.consecutiveRecalls >= 0 && !SchedulingRules.rows(version: value.algorithmVersion).isEmpty && value.dueAt.timeIntervalSince1970.isFinite
+            OwnershipSchema.scheduleValid(value)
         }
         func tagsValid(_ tags: [String]) -> Bool {
             tags.count <= 1_000 && tags.allSatisfy { !$0.isEmpty && $0.utf8.count <= 1_024 }
@@ -177,7 +179,11 @@ public enum BackupCodec {
     static func readableAttempt(_ row: BackupRow) -> Attempt? {
         guard row.integers["schema_ok"] == 1,
               let text = row.strings["record"],
+              (try? OwnershipSchema.validate(text, kind: "attempt")) != nil,
               let value = try? JSONDecoder.domain.decode(Attempt.self, from: Data(text.utf8)),
+              OwnershipSchema.scheduleValid(value.beforeSchedule), OwnershipSchema.scheduleValid(value.afterSchedule),
+              value.monotonicEndNanos >= value.monotonicStartNanos,
+              UInt64(value.elapsedMilliseconds) == (value.monotonicEndNanos - value.monotonicStartNanos) / 1_000_000,
               value.id.rawValue == row.strings["id"],
               value.timestamp.timeIntervalSince1970 == row.reals["timestamp"],
               value.cardID.rawValue == row.strings["card_id"], value.deckID.rawValue == row.strings["deck_id"],
@@ -189,6 +195,21 @@ public enum BackupCodec {
               value.afterSchedule.algorithmVersion == value.algorithmVersion,
               !SchedulingRules.rows(version: value.algorithmVersion).isEmpty else { return nil }
         return value
+    }
+    /// Export gates never normalize or rewrite immutable evidence. Unknown bytes
+    /// cannot be proven free of boot anchors, so complete export fails atomically.
+    static func requireExportableClocks(_ payload: BackupPayload) throws {
+        for table in ["attempt", "session"] {
+            for row in payload.tables[table] ?? [] {
+                guard let text = row.strings["record"],
+                      (try? OwnershipSchema.validate(text, kind: table)) != nil,
+                      (table == "attempt" ? (try? JSONDecoder.domain.decode(Attempt.self, from: Data(text.utf8))) != nil : (try? JSONDecoder.domain.decode(StudySession.self, from: Data(text.utf8))) != nil),
+                      let object = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
+                      object["clockProvenance"] as? String == ClockProvenance.appOriginElapsedV1.rawValue else {
+                    throw OwnershipError.invalid("Export blocked: legacy or unreadable clock evidence must remain on this device. Local history is unchanged. Complete-history backup needs an approved lossless privacy policy; do not delete history to bypass this gate.")
+                }
+            }
+        }
     }
     static func read(_ db: Database) throws -> BackupPayload {
         var result: [String: [BackupRow]] = [:]
@@ -222,7 +243,11 @@ public enum BackupCodec {
 
 extension RecallRepository {
     public func backupJSON() throws -> Data {
-        try db.read { try BackupCodec.encode(BackupCodec.read($0)) }
+        try db.read { raw in
+            let payload = try BackupCodec.read(raw)
+            try BackupCodec.requireExportableClocks(payload)
+            return try BackupCodec.encode(payload)
+        }
     }
     public func previewRestore(_ data: Data, mode: RestoreMode) throws -> RestorePreview {
         let payload = try BackupCodec.decode(data)
@@ -260,6 +285,8 @@ extension RecallRepository {
     }
     public func attemptsCSV() throws -> String {
         try db.read { raw in
+            let payload = try BackupCodec.read(raw)
+            try BackupCodec.requireExportableClocks(BackupPayload(tables: ["attempt": payload.tables["attempt"] ?? []]))
             let rows = try Row.fetchAll(raw, sql: "SELECT id,card_id,deck_id,timestamp,schema_ok,record FROM attempt ORDER BY timestamp,id")
             var output = [["id", "card_id", "deck_id", "timestamp", "schema_ok", "evidence_status", "grade", "mode", "elapsed_ms", "before_box", "before_due", "after_box", "after_due", "algorithm_version", "raw_record"]]
             for row in rows {

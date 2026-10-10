@@ -92,3 +92,5 @@ Use Xcode 26 with the iOS 26 SDK or newer. Produce a signed iPhone archive using
 - No speech-to-text, pronunciation scoring, biometric voice analysis, or cloud AI in MVP.
 - No claim that a mastery label predicts grades, certification, competence, or safety-critical readiness.
 - No dependency on unavailable dual-screen/fold APIs and no claimed iPhone Duo compatibility before supported hardware/API testing.
+
+Issue #7 remains unfinished: legacy/unknown clock evidence blocks public full-history exports without changing stored history. An authorized safe backup policy, fresh parent review, exact-candidate Apple CI and signed/VALID TestFlight evidence are still required. Candidate 30f1523 / draft PR #14 provenance does not establish verification of the subsequent staged fix snapshot.
