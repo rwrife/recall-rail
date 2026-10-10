@@ -12,6 +12,25 @@ final class OwnershipTests: XCTestCase {
         try repo.saveCard(StoreFixtures.card(deckID: deck.id))
         return repo
     }
+    func testSpreadsheetSafeExportsPreserveBackupBytes() throws {
+        let repo = try fixture()
+        var deck = try repo.allDecks()[0]
+        deck.title = "=SUM(1)"
+        deck.notes = " \t@formula"
+        deck.tags = ["+tag"]
+        try repo.saveDeck(deck)
+        let json = "{\"future\":true}"
+        let rawCell = CSVDocument(text: RecallRepository.csvField(json)).rows[0].fields[0]
+        XCTAssertEqual(rawCell, json)
+        XCTAssertNoThrow(try JSONSerialization.jsonObject(with: Data(rawCell.utf8)))
+        let before = try repo.backupJSON()
+        let fields = CSVDocument(text: try repo.decksCSV()).rows[1].fields
+        XCTAssertEqual(Array(fields[1...3]), ["'=SUM(1)", "' \t@formula", "'+tag"])
+        for value in ["=1", "+1", "-1", "@x", "\tx", "\rx", "\nx", "  =x"] {
+            XCTAssertEqual(CSVDocument(text: RecallRepository.csvField(value)).rows.first?.fields.first, "'" + value)
+        }
+        XCTAssertEqual(try repo.backupJSON(), before)
+    }
     func testCompletePracticeRoundtripAndHistoryConflict() throws {
         let source = try fixture()
         let deck = try source.allDecks()[0]

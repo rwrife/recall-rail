@@ -9,11 +9,20 @@ import Foundation
 ///   importer never guesses another encoding.
 /// - **Header:** the first record is a header row. Required columns:
 ///   `prompt`, `answer`. Optional columns: `hint`, `source`, `tags`,
-///   `id`, `sort`. Column ORDER is free; unknown columns are an ERROR —
+///   `id`, `sort`, `recallrail_csv_encoding`. Column ORDER is free; unknown columns are an ERROR —
 ///   a strict preview must not silently discard user data.
 /// - **Quoting / line endings:** see `CSVDocument`. CRLF, LF, and CR all
 ///   parse; a document mixing terminator styles warns. Quoted fields may
 ///   contain commas, quotes, and newlines.
+/// - **Spreadsheet safety:** exports add `recallrail_csv_encoding` =
+///   `apostrophe-v1` to each row. Only rows with this explicit marker decode
+///   serializer apostrophe prefixes (including doubled literal apostrophes)
+///   and preserve text whitespace. Unmarked imports keep apostrophes literal
+///   and retain the usual trimming rules. Keep the marker and cell bytes intact
+///   for a lossless text round-trip; spreadsheet applications may rewrite them.
+/// - **CSV ceiling:** tags still use the semicolon/trim/deduplicate contract;
+///   tags containing semicolons or significant edge whitespace, and optional
+///   empty-vs-nil strings, are not lossless. Use the JSON backup for exact data.
 /// - **Blank lines:** completely empty records are ignored (reported as
 ///   `skippedBlankLines`), never imported as empty cards.
 /// - **`tags`:** semicolon-separated (`exam;ch1`). Empty segments are
@@ -190,7 +199,7 @@ public enum CSVCardImport {
 
         let columns = headerRow.fields.map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
         let required = ["prompt", "answer"]
-        let known = Set(required + ["hint", "source", "tags", "id", "sort"])
+        let known = Set(required + ["hint", "source", "tags", "id", "sort", "recallrail_csv_encoding"])
         // Header failures are DOCUMENT-level (lineNumber nil): even
         // valid-rows-only mode cannot run without a usable header.
         for name in required where !columns.contains(name) {
@@ -223,6 +232,7 @@ public enum CSVCardImport {
         let tagsIdx = column("tags")
         let idIdx = column("id")
         let sortIdx = column("sort")
+        let encodingIdx = column("recallrail_csv_encoding")
 
         var rows: [ProposedRow] = []
         var seenIDs: [StableID: Int] = [:] // file id -> first line using it
@@ -230,9 +240,17 @@ public enum CSVCardImport {
 
         for row in doc.rows.dropFirst() {
             let line = row.lineNumber
+            let encoding = encodingIdx.flatMap { $0 < row.fields.count ? row.fields[$0] : nil } ?? ""
+            guard encoding.isEmpty || encoding == "apostrophe-v1" else {
+                errors.append(Issue(lineNumber: line, field: "recallrail_csv_encoding",
+                                    message: "Unsupported card CSV encoding."))
+                continue
+            }
             func trimmed(_ index: Int?) -> String {
                 guard let index, index < row.fields.count else { return "" }
-                return row.fields[index].trimmingCharacters(in: .whitespacesAndNewlines)
+                let value = row.fields[index]
+                return encoding == "apostrophe-v1" ? CSVDocument.decodeSpreadsheetField(value)
+                    : value.trimmingCharacters(in: .whitespacesAndNewlines)
             }
             // Only a genuinely empty one-field record is ignorable.
             // Comma-only records contain explicit empty cells and must be
@@ -287,7 +305,7 @@ public enum CSVCardImport {
             }
 
             let tags = tagsIdx.flatMap { idx in
-                idx < row.fields.count ? parseTags(row.fields[idx]) : nil
+                idx < row.fields.count ? parseTags(trimmed(idx)) : nil
             } ?? []
 
             var sortOrder = -1
@@ -402,7 +420,7 @@ public enum CSVCardImport {
     /// Serializes cards with their stable IDs so an export → edit → import
     /// round-trip updates instead of duplicating.
     public static func exportCSV(cards: [Card]) -> String {
-        var rows: [[String]] = [["id", "prompt", "answer", "hint", "source", "tags", "sort"]]
+        var rows: [[String]] = [["id", "prompt", "answer", "hint", "source", "tags", "sort", "recallrail_csv_encoding"]]
         for card in cards.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             rows.append([
                 card.id.rawValue,
@@ -412,6 +430,7 @@ public enum CSVCardImport {
                 card.source ?? "",
                 card.tags.joined(separator: ";"),
                 String(card.sortOrder),
+                "apostrophe-v1",
             ])
         }
         return CSVDocument.serialize(rows: rows)

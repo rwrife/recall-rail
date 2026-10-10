@@ -300,13 +300,13 @@ extension RecallRepository {
                     output.append([id, card, deck, String(timestamp), String(ok), "corrupt"] + Array(repeating: "", count: 8) + [record])
                 }
             }
-            return output.map { $0.map(Self.csvField).joined(separator: ",") }.joined(separator: "\r\n") + "\r\n"
+            return CSVDocument.serialize(rows: output)
         }
     }
     public func decksCSV() throws -> String {
         let decks = try allDecks(includeArchived: true)
         let rows = [["id", "title", "notes", "tags", "archived", "created_at", "updated_at"]] + decks.map { [$0.id.rawValue, $0.title, $0.notes, $0.tags.joined(separator: ";"), String($0.isArchived), String($0.createdAt.timeIntervalSince1970), String($0.updatedAt.timeIntervalSince1970)] }
-        return rows.map { $0.map(Self.csvField).joined(separator: ",") }.joined(separator: "\r\n") + "\r\n"
+        return CSVDocument.serialize(rows: rows)
     }
-    static func csvField(_ text: String) -> String { "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
+    static func csvField(_ text: String) -> String { CSVDocument.escapeField(text) }
 }
