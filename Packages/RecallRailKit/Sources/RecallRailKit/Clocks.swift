@@ -21,8 +21,15 @@ public protocol MonotonicTimeProviding: Sendable {
     func nowNanoseconds() -> UInt64
 }
 
-/// Production monotonic source backed by `DispatchTime`.
+/// Process-relative elapsed time. Persisted/exported anchors measure elapsed time
+/// between app events rather than exposing the device's boot-relative uptime.
+/// A new process starts a new origin; practice resume resets its live anchor.
 public struct SystemMonotonicClock: MonotonicTimeProviding {
     public init() {}
-    public func nowNanoseconds() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
+    private static let origin = DispatchTime.now().uptimeNanoseconds
+    public func nowNanoseconds() -> UInt64 {
+        let origin = Self.origin
+        let current = DispatchTime.now().uptimeNanoseconds
+        return current >= origin ? current - origin : 0
+    }
 }

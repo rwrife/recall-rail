@@ -1,0 +1,60 @@
+name: Evidence-gated TestFlight
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: recall-rail-testflight
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: apple-practice-${{ github.event.workflow_run.head_sha }}
+          path: PrerequisiteEvidence
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Require exact successful Apple evidence
+        env:
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib,subprocess,plistlib
+          root=pathlib.Path('PrerequisiteEvidence')
+          assert root.joinpath('head.txt').read_text().strip()==os.environ['TARGET_SHA']==subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          summary=json.loads(root.joinpath('test-summary.json').read_text())
+          assert summary['result']=='Passed' and summary['failedTests']==0 and summary['passedTests']>0
+          info=plistlib.loads(root.joinpath('BuiltInfo.plist').read_bytes())
+          assert info['CFBundleIdentifier']=='com.infinityball.recallrail' and info['UIDeviceFamily']==[1]
+          toolchain=json.load(open('toolchain.json'))
+          lines=root.joinpath('toolchain.txt').read_text().splitlines()
+          assert lines==['Xcode '+toolchain['xcode_version'],'Build version '+toolchain['xcode_build'],toolchain['iphoneos_sdk']]
+          PY
+      - name: Select pinned Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
+      - name: Archive, upload, and await exact VALID build
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_TEAM_ID: ${{ secrets.ASC_TEAM_ID }}
+        run: bash scripts/testflight_release.sh
+      - name: Preserve sanitized release evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: testflight-${{ github.event.workflow_run.head_sha }}-${{ github.run_number }}-${{ github.run_attempt }}
+          path: ReleaseEvidence
+          if-no-files-found: warn

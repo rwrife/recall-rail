@@ -497,8 +497,13 @@ public struct RecallRepository: Sendable {
         let rowCardID: String = row["card_id"]
         let rowDeckID: String = row["deck_id"]
         let text: String = row["record"]
-        guard let data = text.data(using: .utf8),
+        guard (try? OwnershipSchema.validate(text, kind: "attempt")) != nil,
+              let data = text.data(using: .utf8),
               let attempt = try? JSONDecoder.domain.decode(Attempt.self, from: data),
+              OwnershipSchema.scheduleValid(attempt.beforeSchedule),
+              OwnershipSchema.scheduleValid(attempt.afterSchedule),
+              attempt.monotonicEndNanos >= attempt.monotonicStartNanos,
+              UInt64(attempt.elapsedMilliseconds) == (attempt.monotonicEndNanos - attempt.monotonicStartNanos) / 1_000_000,
               attempt.cardID.rawValue == rowCardID,
               attempt.deckID.rawValue == rowDeckID
         else { return nil }
@@ -897,6 +902,7 @@ public struct RecallRepository: Sendable {
         // writeWithoutTransaction: the BEGIN IMMEDIATE below IS the
         // transaction; GRDB must not wrap it in another one.
         try db.writeWithoutTransaction { raw in
+            try raw.execute(sql: "PRAGMA secure_delete = ON;")
             try raw.execute(sql: "BEGIN IMMEDIATE;")
             do {
                 try raw.execute(sql: "DROP TRIGGER attempt_no_delete;")
@@ -914,6 +920,17 @@ public struct RecallRepository: Sendable {
                 try? raw.execute(sql: "ROLLBACK;")
                 throw error
             }
+        }
+    }
+
+
+    /// Erase records, then reclaim deleted pages and truncate the WAL. Device backups
+    /// and explicitly exported copies remain outside the local deletion boundary.
+    public func eraseLocalRecords() throws {
+        try resetAll()
+        try db.writeWithoutTransaction { raw in
+            try raw.execute(sql: "PRAGMA wal_checkpoint(TRUNCATE);")
+            try raw.execute(sql: "VACUUM;")
         }
     }
 

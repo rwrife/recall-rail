@@ -58,6 +58,10 @@ struct DeckListView: View {
                     }
                 }
             }
+            Section {
+                NavigationLink("Data and privacy") { OwnershipView(library: library) }
+                    .accessibilityIdentifier("deck-list.ownership")
+            }
             if let error = library.lastError {
                 Text("Storage error: \(error)").foregroundStyle(.red)
                     .accessibilityIdentifier("deck.storage-error")
