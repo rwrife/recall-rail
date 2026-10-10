@@ -201,8 +201,8 @@ final class DeckLibrary {
         }
     }
 
-    func exportCSV(deckID: StableID) -> String {
-        let cards = ((try? repo.cards(deckID: deckID, includeArchived: true)) ?? [])
+    func exportCSV(deckID: StableID) throws -> String {
+        let cards = try repo.cards(deckID: deckID, includeArchived: true)
             .sorted { $0.sortOrder < $1.sortOrder }
         return CSVCardImport.exportCSV(cards: cards)
     }

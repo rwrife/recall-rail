@@ -72,7 +72,7 @@ No fold SDK symbol, posture assumption, device claim, or iPad layout enters the 
 
 ## Packaging and distribution
 
-Use Xcode 26 with the iOS 26 SDK or newer. Produce a signed iPhone archive using `com.infinityball.recallrail`, verify the archive metadata and entitlements, then upload through App Store Connect using the configured Actions secrets. Capture Xcode/SDK/build SHA, archive verification, upload result, and processed build ID. App Store metadata must state local storage, optional microphone/notifications, no account, and no tracking.
+Use Xcode 26 with the iOS 26 SDK or newer. Produce a signed iPhone archive using `com.infinityball.recallrail`, verify the archive metadata and entitlements, then upload through App Store Connect using the configured Actions secrets. Capture Xcode/SDK/build SHA, archive verification, upload result, and processed build ID. App Store metadata must state local storage, explicit microphone permission without recording, no implemented notifications, no account, and no tracking.
 
 ## Risks and mitigations
 

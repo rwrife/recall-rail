@@ -897,6 +897,7 @@ public struct RecallRepository: Sendable {
         // writeWithoutTransaction: the BEGIN IMMEDIATE below IS the
         // transaction; GRDB must not wrap it in another one.
         try db.writeWithoutTransaction { raw in
+            try raw.execute(sql: "PRAGMA secure_delete = ON;")
             try raw.execute(sql: "BEGIN IMMEDIATE;")
             do {
                 try raw.execute(sql: "DROP TRIGGER attempt_no_delete;")
@@ -914,6 +915,17 @@ public struct RecallRepository: Sendable {
                 try? raw.execute(sql: "ROLLBACK;")
                 throw error
             }
+        }
+    }
+
+
+    /// Erase records, then reclaim deleted pages and truncate the WAL. Device backups
+    /// and explicitly exported copies remain outside the local deletion boundary.
+    public func eraseLocalRecords() throws {
+        try resetAll()
+        try db.writeWithoutTransaction { raw in
+            try raw.execute(sql: "PRAGMA wal_checkpoint(TRUNCATE);")
+            try raw.execute(sql: "VACUUM;")
         }
     }
 
