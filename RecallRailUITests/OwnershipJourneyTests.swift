@@ -3,6 +3,24 @@ import XCTest
 /// Uses the production navigation and system file exporter/importer; no test-only restore seam.
 @MainActor
 final class OwnershipJourneyTests: XCTestCase {
+    private func cancelExporter(_ app: XCUIApplication) -> Bool {
+        // The host screen also owns a BackButton; only tap picker controls.
+        let picker = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
+        for _ in 0..<3 {
+            let cancel = app.buttons.matching(NSPredicate(format: "label ==[c] 'cancel'")).firstMatch
+            if cancel.exists { cancel.tap() } else if picker.buttons["BackButton"].exists {
+                picker.buttons["BackButton"].tap()
+            } else { break }
+            let deadline = Date().addingTimeInterval(3)
+            while Date() < deadline {
+                if !app.buttons["Save"].exists && app.buttons["ownership.backup"].isHittable { return true }
+                usleep(200_000)
+            }
+        }
+        XCTFail("System document exporter could not be dismissed: \(app.debugDescription)")
+        return false
+    }
+
     func testBackupExportChooseFileRestoreAndDelete() {
         let app = XCUIApplication()
         app.launch()
@@ -30,9 +48,7 @@ final class OwnershipJourneyTests: XCTestCase {
         app.buttons["ownership.cards.\(deckID)"].tap()
         let saveButton = app.buttons["Save"]
         XCTAssertTrue(saveButton.waitForExistence(timeout: 10), "System document exporter must appear")
-        // iOS document picker dismisses via navigation back/browse on iPhone.
-        let browse = app.buttons["BackButton"]
-        if browse.exists { browse.tap() } else { app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'cancel' OR label CONTAINS[c] 'browse'")).firstMatch.tap() }
+        guard cancelExporter(app) else { return }
         app.buttons["ownership.backup"].tap()
         let save = app.buttons["Save"]
         XCTAssertTrue(save.waitForExistence(timeout: 10), "System exporter must open")
@@ -99,8 +115,7 @@ final class OwnershipJourneyTests: XCTestCase {
         XCTAssertTrue(export.waitForExistence(timeout: 10))
         export.tap()
         XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 10))
-        let browse = app.buttons["BackButton"]
-        if browse.exists { browse.tap() } else { app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'cancel' OR label CONTAINS[c] 'browse'")).firstMatch.tap() }
+        _ = cancelExporter(app)
     }
 
     func testCSVExportOpensSystemDestination() {
@@ -113,8 +128,7 @@ final class OwnershipJourneyTests: XCTestCase {
             for _ in 0..<8 where !button.isHittable { app.swipeUp() }
             button.tap()
             XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 10))
-            let browse = app.buttons["BackButton"]
-            if browse.exists { browse.tap() } else { app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'cancel' OR label CONTAINS[c] 'browse'")).firstMatch.tap() }
+            _ = cancelExporter(app)
         }
     }
 }
