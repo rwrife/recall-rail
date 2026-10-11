@@ -56,15 +56,22 @@ final class OwnershipJourneyTests: XCTestCase {
         XCTAssertTrue(name.waitForExistence(timeout: 5), "System filename field must be available")
         name.tap()
         let oldName = name.value as? String ?? ""
-        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: oldName.count) + exportName)
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: oldName.count) + exportName + "\n")
         // On a fresh simulator choose an explicit local destination when shown.
         let local = app.buttons["On My iPhone"]
         if local.exists { local.tap() }
         save.tap()
         let replace = app.buttons["Replace"]
         if replace.waitForExistence(timeout: 2) { replace.tap() }
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline && save.exists { usleep(200_000) }
+        guard !save.exists else {
+            XCTFail("Save did not dismiss document exporter: \(app.debugDescription)")
+            return
+        }
         let message = app.staticTexts["ownership.message"]
-        XCTAssertTrue(message.waitForExistence(timeout: 10))
+        for _ in 0..<8 where !message.exists { app.swipeUp() }
+        XCTAssertTrue(message.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertEqual(message.label, "Export saved.")
         let deleteBeforeRestore = app.buttons["ownership.delete"]
         for _ in 0..<8 where !deleteBeforeRestore.isHittable { app.swipeUp() }
