@@ -52,14 +52,15 @@ final class OwnershipJourneyTests: XCTestCase {
         app.buttons["ownership.backup"].tap()
         let save = app.buttons["Save"]
         XCTAssertTrue(save.waitForExistence(timeout: 10), "System exporter must open")
-        let name = app.textFields.firstMatch
+        let name = app.textFields["DOCPicker.filenameTextField"]
         XCTAssertTrue(name.waitForExistence(timeout: 5), "System filename field must be available")
         name.tap()
         let oldName = name.value as? String ?? ""
-        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: oldName.count) + exportName + "\n")
-        // On a fresh simulator choose an explicit local destination when shown.
-        let local = app.buttons["On My iPhone"]
-        if local.exists { local.tap() }
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: oldName.count) + exportName)
+        // Submitting with Return navigated the picker into an empty folder and
+        // left Save disabled on iOS 26. Verify destination and enabled state.
+        XCTAssertTrue(app.otherElements.matching(NSPredicate(format: "identifier CONTAINS 'Source: com.apple.FileProvider.LocalStorage'")).firstMatch.waitForExistence(timeout: 5), "Local file destination required: \(app.debugDescription)")
+        XCTAssertTrue(save.isEnabled, "System Save disabled: \(app.debugDescription)")
         save.tap()
         let replace = app.buttons["Replace"]
         if replace.waitForExistence(timeout: 2) { replace.tap() }
