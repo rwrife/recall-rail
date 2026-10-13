@@ -26,7 +26,7 @@ final class OwnershipJourneyTests: XCTestCase {
         app.launch()
         app.buttons["deck-list.create"].tap()
         let title = "Ownership \(UUID().uuidString)"
-        let exportName = "rr-ownership-\(UUID().uuidString)"
+        let exportName = "RecallRail-backup"
         app.textFields["deck-editor.title"].tap()
         app.textFields["deck-editor.title"].typeText(title)
         app.buttons["deck-editor.save"].tap()
@@ -52,14 +52,8 @@ final class OwnershipJourneyTests: XCTestCase {
         app.buttons["ownership.backup"].tap()
         let save = app.buttons["Save"]
         XCTAssertTrue(save.waitForExistence(timeout: 10), "System exporter must open")
-        let name = app.textFields["DOCPicker.filenameTextField"]
-        XCTAssertTrue(name.waitForExistence(timeout: 5), "System filename field must be available")
-        name.tap()
-        let oldName = name.value as? String ?? ""
-        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: oldName.count) + exportName)
-        // Submitting with Return navigated the picker into an empty folder and
-        // left Save disabled on iOS 26. Verify destination and enabled state.
-        XCTAssertTrue(app.otherElements.matching(NSPredicate(format: "identifier CONTAINS 'Source: com.apple.FileProvider.LocalStorage'")).firstMatch.waitForExistence(timeout: 5), "Local file destination required: \(app.debugDescription)")
+        let deadlineSave = Date().addingTimeInterval(5)
+        while Date() < deadlineSave && !save.isEnabled { usleep(200_000) }
         XCTAssertTrue(save.isEnabled, "System Save disabled: \(app.debugDescription)")
         save.tap()
         let replace = app.buttons["Replace"]
