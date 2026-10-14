@@ -32,10 +32,11 @@ final class OwnershipJourneyTests: XCTestCase {
             let folder = app.buttons["New Folder"]
             XCTAssertTrue(folder.waitForExistence(timeout: 5), "No local destination or folder action: \(app.debugDescription)")
             folder.tap()
-            let name = app.textFields.firstMatch
-            XCTAssertTrue(name.waitForExistence(timeout: 5), app.debugDescription)
+            let name = app.alerts.textFields.firstMatch
+            XCTAssertTrue(name.waitForExistence(timeout: 5), "New Folder dialog missing: \(app.debugDescription)")
+            name.tap()
             name.typeText("RecallRail-Exports")
-            app.buttons["Done"].tap()
+            app.alerts.buttons["Save"].tap()
         }
     }
 
