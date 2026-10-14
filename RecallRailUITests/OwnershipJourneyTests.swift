@@ -21,6 +21,24 @@ final class OwnershipJourneyTests: XCTestCase {
         return false
     }
 
+    private func chooseLocalDestination(_ app: XCUIApplication) {
+        let local = app.cells["DOC.sidebar.item.On My iPhone"]
+        if local.exists { local.tap() }
+        let appFolder = app.cells.matching(NSPredicate(format: "label CONTAINS[c] 'Recall Rail'")).firstMatch
+        if appFolder.waitForExistence(timeout: 3) { appFolder.tap() }
+        let save = app.buttons["Save"]
+        if save.exists && !save.isEnabled {
+            app.navigationBars["FullDocumentManagerViewControllerNavigationBar"].buttons["More"].tap()
+            let folder = app.buttons["New Folder"]
+            XCTAssertTrue(folder.waitForExistence(timeout: 5), "No local destination or folder action: \(app.debugDescription)")
+            folder.tap()
+            let name = app.textFields.firstMatch
+            XCTAssertTrue(name.waitForExistence(timeout: 5), app.debugDescription)
+            name.typeText("RecallRail-Exports")
+            app.buttons["Done"].tap()
+        }
+    }
+
     func testBackupExportChooseFileRestoreAndDelete() {
         let app = XCUIApplication()
         app.launch()
@@ -46,10 +64,12 @@ final class OwnershipJourneyTests: XCTestCase {
         XCTAssertTrue(ownership.waitForExistence(timeout: 5))
         ownership.tap()
         app.buttons["ownership.cards.\(deckID)"].tap()
+        chooseLocalDestination(app)
         let saveButton = app.buttons["Save"]
         XCTAssertTrue(saveButton.waitForExistence(timeout: 10), "System document exporter must appear: \(app.debugDescription)")
         guard cancelExporter(app) else { return }
         app.buttons["ownership.backup"].tap()
+        chooseLocalDestination(app)
         let save = app.buttons["Save"]
         XCTAssertTrue(save.waitForExistence(timeout: 10), "System exporter must open")
         let deadlineSave = Date().addingTimeInterval(5)
@@ -116,6 +136,7 @@ final class OwnershipJourneyTests: XCTestCase {
         let export = app.buttons["ownership.cards.\(deckID)"]
         XCTAssertTrue(export.waitForExistence(timeout: 10))
         export.tap()
+        chooseLocalDestination(app)
         XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 10), "Archived deck exporter must appear: \(app.debugDescription)")
         _ = cancelExporter(app)
     }
