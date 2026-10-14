@@ -13,6 +13,10 @@ class OwnershipStructureTests(unittest.TestCase):
             self.assertNotIn(f'.accessibilityIdentifier("{ancestor}")', source)
         self.assertIn('try library.ownershipExportDecks()', source)
         self.assertIn('ForEach(exportDecks)', source)
+        self.assertIn('FileManager.default.url(for: .documentDirectory', source)
+        project = (ROOT/'RecallRail.xcodeproj/project.pbxproj').read_text()
+        self.assertEqual(project.count('INFOPLIST_KEY_UIFileSharingEnabled = YES;'), 2)
+        self.assertEqual(project.count('INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;'), 2)
         export = (ROOT/'RecallRail/DeckLibrary.swift').read_text().split('func exportCSV')[1]
         self.assertIn('throws -> String', export)
         self.assertNotIn('try?', export)

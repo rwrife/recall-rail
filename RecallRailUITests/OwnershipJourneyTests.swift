@@ -47,7 +47,7 @@ final class OwnershipJourneyTests: XCTestCase {
         ownership.tap()
         app.buttons["ownership.cards.\(deckID)"].tap()
         let saveButton = app.buttons["Save"]
-        XCTAssertTrue(saveButton.waitForExistence(timeout: 10), "System document exporter must appear")
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 10), "System document exporter must appear: \(app.debugDescription)")
         guard cancelExporter(app) else { return }
         app.buttons["ownership.backup"].tap()
         let save = app.buttons["Save"]
@@ -116,7 +116,7 @@ final class OwnershipJourneyTests: XCTestCase {
         let export = app.buttons["ownership.cards.\(deckID)"]
         XCTAssertTrue(export.waitForExistence(timeout: 10))
         export.tap()
-        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 10), "Archived deck exporter must appear: \(app.debugDescription)")
         _ = cancelExporter(app)
     }
 

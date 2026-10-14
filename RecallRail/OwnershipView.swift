@@ -32,7 +32,9 @@ struct OwnershipView: View {
     private func perform(_ operation: () throws -> Void) {
         do { try operation() } catch { message = "Operation failed: \(error)" }
     }
-    private func export(_ data: Data, type: UTType, name: String) {
+    private func export(_ data: Data, type: UTType, name: String) throws {
+        // Files needs an app Documents location on devices without another local file provider.
+        _ = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
         document = OwnershipDocument(data: data); exportType = type; filename = name; exporting = true
     }
     private func refreshExportDecks() {
@@ -48,18 +50,18 @@ struct OwnershipView: View {
         Form {
             Section("Your files") {
                 Button("Export complete JSON backup") {
-                    perform { export(try library.repo.backupJSON(), type: .json, name: "RecallRail-backup") }
+                    perform { try export(try library.repo.backupJSON(), type: .json, name: "RecallRail-backup") }
                 }.accessibilityIdentifier("ownership.backup")
                 Button("Export decks CSV") {
-                    perform { export(Data(try library.repo.decksCSV().utf8), type: .commaSeparatedText, name: "RecallRail-decks") }
+                    perform { try export(Data(try library.repo.decksCSV().utf8), type: .commaSeparatedText, name: "RecallRail-decks") }
                 }.accessibilityIdentifier("ownership.decks")
                 ForEach(exportDecks) { deck in
                     Button("Export cards: \(deck.title)") {
-                        perform { export(Data(try library.exportCSV(deckID: deck.id).utf8), type: .commaSeparatedText, name: "RecallRail-cards") }
+                        perform { try export(Data(try library.exportCSV(deckID: deck.id).utf8), type: .commaSeparatedText, name: "RecallRail-cards") }
                     }.accessibilityIdentifier("ownership.cards.\(deck.id.rawValue)")
                 }
                 Button("Export attempts CSV") {
-                    perform { export(Data(try library.repo.attemptsCSV().utf8), type: .commaSeparatedText, name: "RecallRail-attempts") }
+                    perform { try export(Data(try library.repo.attemptsCSV().utf8), type: .commaSeparatedText, name: "RecallRail-attempts") }
                 }.accessibilityIdentifier("ownership.attempts")
                 Text("Exports are created only when you choose a file destination. Shared copies belong to you and are not erased by deleting app data.")
             }
