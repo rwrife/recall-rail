@@ -21,23 +21,31 @@ final class OwnershipJourneyTests: XCTestCase {
         return false
     }
 
-    private func chooseLocalDestination(_ app: XCUIApplication) {
-        let local = app.cells["DOC.sidebar.item.On My iPhone"]
-        if local.exists { local.tap() }
-        let appFolder = app.cells.matching(NSPredicate(format: "label CONTAINS[c] 'Recall Rail'")).firstMatch
-        if appFolder.waitForExistence(timeout: 3) { appFolder.tap() }
+    private func waitSaveEnabled(_ app: XCUIApplication, seconds: TimeInterval) -> Bool {
         let save = app.buttons["Save"]
-        if save.exists && !save.isEnabled {
-            app.navigationBars["FullDocumentManagerViewControllerNavigationBar"].buttons["More"].tap()
-            let folder = app.buttons["New Folder"]
-            XCTAssertTrue(folder.waitForExistence(timeout: 5), "No local destination or folder action: \(app.debugDescription)")
-            folder.tap()
-            let name = app.alerts.textFields.firstMatch
-            XCTAssertTrue(name.waitForExistence(timeout: 5), "New Folder dialog missing: \(app.debugDescription)")
-            name.tap()
-            name.typeText("RecallRail-Exports")
-            app.alerts.buttons["Save"].tap()
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if save.exists && save.isEnabled { return true }
+            usleep(200_000)
         }
+        return save.exists && save.isEnabled
+    }
+
+    /// The sheet presents a collapsed Browse stack on the read-only provider root.
+    /// With file sharing the app owns a writable "Recall Rail" Files location; go there.
+    private func navigateToAppFileLocation(_ app: XCUIApplication) -> Bool {
+        let nav = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
+        if nav.buttons["BackButton"].exists { nav.buttons["BackButton"].tap() }
+        let location = app.cells.matching(NSPredicate(format: "label ==[c] 'Recall Rail'")).firstMatch
+        guard location.waitForExistence(timeout: 5) else { return false }
+        location.tap()
+        return true
+    }
+
+    private func chooseLocalDestination(_ app: XCUIApplication) {
+        if waitSaveEnabled(app, seconds: 3) { return }
+        if navigateToAppFileLocation(app) && waitSaveEnabled(app, seconds: 5) { return }
+        XCTFail("Document exporter offers no writable local destination: \(app.debugDescription)")
     }
 
     func testBackupExportChooseFileRestoreAndDelete() {
