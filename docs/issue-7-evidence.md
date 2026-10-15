@@ -1,5 +1,10 @@
 # Issue #7 candidate evidence
 
+## Exact-head Apple status (2026-10-15)
+
+PR #14 remains draft. On `af55586b08155547170e9d0216afc0f23302d88d`, [CI run 38734663283](https://github.com/rwrife/recall-rail/actions/runs/38734663283) passed Linux package/policy checks and pinned native Swift package suites, but native iPhone simulator tests recorded 5 tests / 6 failures. Compact accessibility, practice, and CSV sheet journeys passed; ownership backup and archived-deck save-destination journeys failed. The Files picker exposed `DOC.browsingRoot Source: com.apple.FileProvider.LocalStorage, Title: On My iPhone`, `Folder is Empty`, and a disabled Save button. Its Browse back button did not reveal an app-owned writable location, despite file-sharing Info.plist settings and creating `Documents/Exports` before export. The preceding [run 38729438470](https://github.com/rwrife/recall-rail/actions/runs/38729438470) also failed at the picker before this directory change. This is not proof that the system exporter can save on device. Do not merge or claim backup/restore, built metadata, signed archive, upload, or processed TestFlight evidence until actual Apple evidence passes. Stop speculative picker work; next investigation should capture the real compiled Info.plist and Files-provider state from a simulator artifact/device, then prove a writable destination.
+
+
 ## Current reviewer-fix snapshot (2026-10-10)
 
 The parent supplied committed/pushed candidate `30f15234b5eacb45cb09446c71d58afa7eabfde2` and draft PR #14. This single writer changed only the dedicated issue-7 worktree; no commit, push, PR operation, merge, workflow dispatch, signing or upload was performed during this fix pass. The supplied verdict refers to tree `5b51d3ba3b4137f0e3b2a4368321a798f399202a`; it is reviewer input, not independently executed verification of this snapshot. Prior main CI does not verify this candidate or these staged fixes.
