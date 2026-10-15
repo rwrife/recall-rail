@@ -36,7 +36,7 @@ final class OwnershipJourneyTests: XCTestCase {
     private func navigateToAppFileLocation(_ app: XCUIApplication) -> Bool {
         let nav = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
         if nav.buttons["BackButton"].exists { nav.buttons["BackButton"].tap() }
-        let location = app.cells.matching(NSPredicate(format: "label ==[c] 'Recall Rail'")).firstMatch
+        let location = app.cells["DOC.sidebar.item.Recall Rail"]
         guard location.waitForExistence(timeout: 5) else { return false }
         location.tap()
         return true

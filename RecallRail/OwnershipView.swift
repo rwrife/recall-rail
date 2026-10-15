@@ -33,8 +33,9 @@ struct OwnershipView: View {
         do { try operation() } catch { message = "Operation failed: \(error)" }
     }
     private func export(_ data: Data, type: UTType, name: String) throws {
-        // Files needs an app Documents location on devices without another local file provider.
-        _ = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        // Files may hide an empty app Documents root; expose a local destination before presenting exporter.
+        let documents = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        try FileManager.default.createDirectory(at: documents.appendingPathComponent("Exports", isDirectory: true), withIntermediateDirectories: true)
         document = OwnershipDocument(data: data); exportType = type; filename = name; exporting = true
     }
     private func refreshExportDecks() {
