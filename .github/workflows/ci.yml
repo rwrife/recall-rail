@@ -87,8 +87,11 @@ jobs:
           for app in /Applications/Xcode_26.0.1.app /Applications/Xcode_26.0.app /Applications/Xcode.app; do
             [ -d "$app" ] || continue
             developer="$app/Contents/Developer"
-            version=$(DEVELOPER_DIR="$developer" xcodebuild -version | head -1)
-            build=$(DEVELOPER_DIR="$developer" xcodebuild -version | grep -i 'build version' | awk '{print $3}')
+            # Capture once: piping xcodebuild into head can SIGPIPE-crash Xcode 26.
+            version_output=$(DEVELOPER_DIR="$developer" xcodebuild -version)
+            version=${version_output%%$'\n'*}
+            build_line=${version_output##*$'\n'}
+            build=${build_line##* }
             echo "$app: $version ($build)" >> AppleEvidence/xcode-inventory.txt
             if [ "$version" = "$required_version" ] && [ "$build" = "$required_build" ]; then
               selected="$developer"
