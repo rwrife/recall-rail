@@ -47,10 +47,25 @@ final class OwnershipJourneyTests: XCTestCase {
         return true
     }
 
-    private func chooseLocalDestination(_ app: XCUIApplication) {
-        if waitSaveEnabled(app, seconds: 3) { return }
-        if navigateToAppFileLocation(app) && waitSaveEnabled(app, seconds: 5) { return }
-        XCTFail("Document exporter offers no writable local destination: \(app.debugDescription)")
+    /// The system document exporter runs out-of-process; the extension can silently
+    /// present nothing. Re-present the sheet, bounded, instead of probing a stale tree.
+    private func chooseLocalDestination(_ app: XCUIApplication, reexport: () -> Void) {
+        let filename = app.textFields["DOCPicker.filenameTextField"]
+        for attempt in 0..<3 {
+            if attempt > 0 {
+                let cancel = app.buttons["Cancel"]
+                if cancel.exists && cancel.isHittable { cancel.tap() }
+                usleep(500_000)
+                reexport()
+            }
+            if filename.waitForExistence(timeout: 12) {
+                if waitSaveEnabled(app, seconds: 8) { return }
+                if navigateToAppFileLocation(app) && waitSaveEnabled(app, seconds: 5) { return }
+                XCTFail("Document exporter offers no writable local destination: \(app.debugDescription)")
+                return
+            }
+        }
+        XCTFail("System document exporter never presented after 3 attempts: \(app.debugDescription)")
     }
 
     func testBackupExportChooseFileRestoreAndDelete() {
@@ -78,12 +93,12 @@ final class OwnershipJourneyTests: XCTestCase {
         XCTAssertTrue(ownership.waitForExistence(timeout: 5))
         ownership.tap()
         app.buttons["ownership.cards.\(deckID)"].tap()
-        chooseLocalDestination(app)
+        chooseLocalDestination(app) { app.buttons["ownership.cards.\(deckID)"].tap() }
         let saveButton = app.buttons["Save"]
         XCTAssertTrue(saveButton.waitForExistence(timeout: 10), "System document exporter must appear: \(app.debugDescription)")
         guard cancelExporter(app) else { return }
         app.buttons["ownership.backup"].tap()
-        chooseLocalDestination(app)
+        chooseLocalDestination(app) { app.buttons["ownership.backup"].tap() }
         let save = app.buttons["Save"]
         XCTAssertTrue(save.waitForExistence(timeout: 10), "System exporter must open")
         let deadlineSave = Date().addingTimeInterval(5)
@@ -150,7 +165,7 @@ final class OwnershipJourneyTests: XCTestCase {
         let export = app.buttons["ownership.cards.\(deckID)"]
         XCTAssertTrue(export.waitForExistence(timeout: 10))
         export.tap()
-        chooseLocalDestination(app)
+        chooseLocalDestination(app) { export.tap() }
         XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 10), "Archived deck exporter must appear: \(app.debugDescription)")
         _ = cancelExporter(app)
     }
