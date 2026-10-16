@@ -32,14 +32,10 @@ struct OwnershipView: View {
     private func perform(_ operation: () throws -> Void) {
         do { try operation() } catch { message = "Operation failed: \(error)" }
     }
-    /// Seed a visible placeholder so Files lists a non-empty app destination before export.
     private func export(_ data: Data, type: UTType, name: String) throws {
+        // Files may hide an empty app Documents root; expose a local destination before presenting exporter.
         let documents = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        let placeholder = documents.appendingPathComponent("RecallRail-exports-here.txt")
-        if !FileManager.default.fileExists(atPath: placeholder.path) {
-            try Data("Place exported Recall Rail files in this folder. Safe to delete.\n".utf8)
-                .write(to: placeholder, options: .atomic)
-        }
+        try FileManager.default.createDirectory(at: documents.appendingPathComponent("Exports", isDirectory: true), withIntermediateDirectories: true)
         document = OwnershipDocument(data: data); exportType = type; filename = name; exporting = true
     }
     private func refreshExportDecks() {

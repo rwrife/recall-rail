@@ -31,16 +31,14 @@ final class OwnershipJourneyTests: XCTestCase {
         return save.exists && save.isEnabled
     }
 
-    /// Browse lists providers first; the app's writable Documents folder is inside On My iPhone.
+    /// The sheet presents a collapsed Browse stack on the read-only provider root.
+    /// With file sharing the app owns a writable "Recall Rail" Files location; go there.
     private func navigateToAppFileLocation(_ app: XCUIApplication) -> Bool {
         let nav = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
         if nav.buttons["BackButton"].exists { nav.buttons["BackButton"].tap() }
-        let local = app.cells["DOC.sidebar.item.On My iPhone"]
-        guard local.waitForExistence(timeout: 5) else { return false }
-        local.tap()
-        let folder = app.cells.matching(NSPredicate(format: "label == 'Recall Rail'")).firstMatch
-        guard folder.waitForExistence(timeout: 5) else { return false }
-        folder.tap()
+        let location = app.cells["DOC.sidebar.item.Recall Rail"]
+        guard location.waitForExistence(timeout: 5) else { return false }
+        location.tap()
         return true
     }
 
