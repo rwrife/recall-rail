@@ -32,14 +32,12 @@ struct OwnershipView: View {
     private func perform(_ operation: () throws -> Void) {
         do { try operation() } catch { message = "Operation failed: \(error)" }
     }
-    /// Files hides entries that do not match the save panel's content filter, so an
-    /// empty-looking destination leaves Save disabled on iOS 26. Seed one compatible
-    /// placeholder before presenting the exporter so the writable folder is usable.
+    /// Seed a visible placeholder so Files lists a non-empty app destination before export.
     private func export(_ data: Data, type: UTType, name: String) throws {
         let documents = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        let placeholder = documents.appendingPathComponent("RecallRail-exports-here.\(type.preferredFilenameExtension ?? "txt")")
+        let placeholder = documents.appendingPathComponent("RecallRail-exports-here.txt")
         if !FileManager.default.fileExists(atPath: placeholder.path) {
-            try Data("Placeholder so Files shows a writable Recall Rail destination. Safe to delete.\n".utf8)
+            try Data("Place exported Recall Rail files in this folder. Safe to delete.\n".utf8)
                 .write(to: placeholder, options: .atomic)
         }
         document = OwnershipDocument(data: data); exportType = type; filename = name; exporting = true

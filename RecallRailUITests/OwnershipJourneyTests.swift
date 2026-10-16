@@ -44,34 +44,9 @@ final class OwnershipJourneyTests: XCTestCase {
         return true
     }
 
-    private func createExportFolderIfMissing(_ app: XCUIApplication) {
-        let more = app.buttons["OverflowBarButtonItem"]
-        if more.waitForExistence(timeout: 2) && more.isHittable {
-            more.tap()
-            let newFolder = app.buttons["New Folder"]
-            if newFolder.waitForExistence(timeout: 2) && newFolder.isHittable {
-                newFolder.tap()
-                let alert = app.alerts.firstMatch
-                if alert.waitForExistence(timeout: 3) {
-                    let field = alert.textFields.firstMatch
-                    if field.exists { field.tap(); field.typeText("Exports") }
-                    if alert.buttons["Save"].exists { alert.buttons["Save"].tap() }
-                    else if alert.buttons["Done"].exists { alert.buttons["Done"].tap() }
-                    // A new folder is not entered automatically; open it so Save enables.
-                    let created = app.cells.matching(NSPredicate(format: "label BEGINSWITH 'Exports'")).firstMatch
-                    if created.waitForExistence(timeout: 5) { created.tap() }
-                }
-            }
-        }
-    }
-
     private func chooseLocalDestination(_ app: XCUIApplication) {
         if waitSaveEnabled(app, seconds: 3) { return }
-        if navigateToAppFileLocation(app) {
-            if waitSaveEnabled(app, seconds: 3) { return }
-            createExportFolderIfMissing(app)
-            if waitSaveEnabled(app, seconds: 5) { return }
-        }
+        if navigateToAppFileLocation(app) && waitSaveEnabled(app, seconds: 5) { return }
         XCTFail("Document exporter offers no writable local destination: \(app.debugDescription)")
     }
 
