@@ -128,6 +128,18 @@ jobs:
             -derivedDataPath DerivedData \
             -resultBundlePath AppleEvidence/PracticeTests.xcresult \
             test 2>&1 | tee AppleEvidence/test.log
+      - name: Preserve built test app metadata even when UI tests fail
+        if: always()
+        run: |
+          app=$(find DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 1 -name RecallRail.app -type d -print -quit 2>/dev/null || true)
+          if [ -n "$app" ] && [ -f "$app/Info.plist" ]; then
+            mkdir -p AppleEvidence
+            cp "$app/Info.plist" AppleEvidence/TestAppInfo.plist
+            for key in CFBundleIdentifier UIDeviceFamily UIFileSharingEnabled LSSupportsOpeningDocumentsInPlace; do
+              printf '%s=' "$key"
+              plutil -extract "$key" raw -o - "$app/Info.plist" 2>/dev/null || echo MISSING
+            done
+          fi
       - name: Build native iPhone simulator app
         run: |
           set -euo pipefail
