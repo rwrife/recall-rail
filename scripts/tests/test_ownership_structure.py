@@ -1,4 +1,5 @@
 from pathlib import Path
+import plistlib
 import struct
 import unittest
 import zlib
@@ -17,6 +18,11 @@ class OwnershipStructureTests(unittest.TestCase):
         project = (ROOT/'RecallRail.xcodeproj/project.pbxproj').read_text()
         self.assertEqual(project.count('INFOPLIST_KEY_UIFileSharingEnabled = YES;'), 2)
         self.assertEqual(project.count('INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;'), 2)
+        self.assertEqual(project.count('INFOPLIST_FILE = RecallRail/Info.plist;'), 2)
+        with (ROOT/'RecallRail/Info.plist').open('rb') as file:
+            plist = plistlib.load(file)
+        self.assertIs(plist['UIFileSharingEnabled'], True)
+        self.assertIs(plist['LSSupportsOpeningDocumentsInPlace'], True)
         export = (ROOT/'RecallRail/DeckLibrary.swift').read_text().split('func exportCSV')[1]
         self.assertIn('throws -> String', export)
         self.assertNotIn('try?', export)

@@ -161,6 +161,8 @@ jobs:
           [ "$bundle_id" = "com.infinityball.recallrail" ] || { echo "::error::Bundle id is $bundle_id"; exit 1; }
           family=$(plutil -extract UIDeviceFamily json -o - "$plist")
           [ "$family" = '[1]' ] || { echo "::error::UIDeviceFamily is $family, expected [1]"; exit 1; }
+          fshare=$(plutil -extract UIFileSharingEnabled raw -o - "$plist" 2>/dev/null || true)
+          case "$fshare" in 1|true|YES) ;; *) echo "::error::UIFileSharingEnabled is '$fshare'; Files offers no writable app folder"; exit 1 ;; esac
           [ -f "$app/PrivacyInfo.xcprivacy" ] || { echo "::error::PrivacyInfo.xcprivacy is not embedded"; exit 1; }
           echo "Built bundle: $bundle_id; UIDeviceFamily=$family; privacy manifest embedded: PASS"
           cp "$plist" AppleEvidence/BuiltInfo.plist
