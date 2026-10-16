@@ -31,14 +31,17 @@ final class OwnershipJourneyTests: XCTestCase {
         return save.exists && save.isEnabled
     }
 
-    /// With UIFileSharingEnabled the app owns a "Recall Rail" folder under On My iPhone.
+    /// Files may open directly at On My iPhone or at its provider sidebar.
+    /// The app's folder is a grid cell with identifier "Recall Rail" and a count label.
     private func navigateToAppFileLocation(_ app: XCUIApplication) -> Bool {
-        let nav = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
-        if nav.buttons["BackButton"].exists { nav.buttons["BackButton"].tap() }
-        let local = app.cells["DOC.sidebar.item.On My iPhone"]
-        guard local.waitForExistence(timeout: 10) else { return false }
-        local.tap()
-        let folder = app.cells.matching(NSPredicate(format: "label == 'Recall Rail'")).firstMatch
+        let folder = app.cells["Recall Rail"]
+        if !folder.exists {
+            let nav = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
+            if nav.buttons["BackButton"].exists { nav.buttons["BackButton"].tap() }
+            let local = app.cells["DOC.sidebar.item.On My iPhone"]
+            guard local.waitForExistence(timeout: 5) else { return false }
+            local.tap()
+        }
         guard folder.waitForExistence(timeout: 5) else { return false }
         folder.tap()
         return true
