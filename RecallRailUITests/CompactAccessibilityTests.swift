@@ -92,7 +92,15 @@ final class CompactAccessibilityTests: XCTestCase {
         XCTAssertTrue(waitForGeometry(portrait: true))
 
         for grade in ["again", "hard", "recalled"] {
+            let pendingText = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Pending: \(grade)'")).firstMatch
             tap(app, "practice.grade.\(grade)")
+            // AX5 can reflow under the finger while the scroll view settles.
+            // Retry a missed tap, but never treat an absent pending state as success.
+            if !pendingText.waitForExistence(timeout: 3) { tap(app, "practice.grade.\(grade)") }
+            guard pendingText.waitForExistence(timeout: 5) else {
+                XCTFail("grade \(grade) produced no pending state: \(app.debugDescription)")
+                return
+            }
             tap(app, "practice.undo")
             XCTAssertFalse(app.buttons["practice.next"].exists)
         }
