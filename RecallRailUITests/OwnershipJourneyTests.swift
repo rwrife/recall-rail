@@ -31,19 +31,25 @@ final class OwnershipJourneyTests: XCTestCase {
         return save.exists && save.isEnabled
     }
 
-    /// Files may open directly at On My iPhone or at its provider sidebar.
-    /// The app's folder is a grid cell with identifier "Recall Rail" and a count label.
+    /// Files may start at the provider sidebar, local root, app folder, or Exports.
+    /// Prefer the app's existing Exports subfolder over the app root: Save can be
+    /// disabled at the parent even though a child location is writable.
     private func navigateToAppFileLocation(_ app: XCUIApplication) -> Bool {
+        let root = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier CONTAINS 'DOC.browsingRoot'")).firstMatch
+        let exports = app.cells["Exports"]
+        if root.exists && root.identifier.contains("Title: Exports") { return true }
         let folder = app.cells["Recall Rail"]
-        if !folder.exists {
+        if !folder.exists && !exports.exists {
             let nav = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
             if nav.buttons["BackButton"].exists { nav.buttons["BackButton"].tap() }
             let local = app.cells["DOC.sidebar.item.On My iPhone"]
             guard local.waitForExistence(timeout: 5) else { return false }
             local.tap()
         }
-        guard folder.waitForExistence(timeout: 5) else { return false }
-        folder.tap()
+        if folder.exists { folder.tap() }
+        guard exports.waitForExistence(timeout: 5) else { return false }
+        exports.tap()
         return true
     }
 
@@ -125,6 +131,9 @@ final class OwnershipJourneyTests: XCTestCase {
         let choose = app.buttons["ownership.choose"]
         for _ in 0..<8 where !choose.isHittable { app.swipeDown() }
         choose.tap()
+        // Backups are saved inside the app's Exports folder; navigate there first.
+        let exportsInImporter = app.cells["Exports"]
+        if exportsInImporter.waitForExistence(timeout: 10) { exportsInImporter.tap() }
         let file = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", exportName)).firstMatch
         XCTAssertTrue(file.waitForExistence(timeout: 10), "Export must be selectable through system importer")
         file.tap()
@@ -163,6 +172,7 @@ final class OwnershipJourneyTests: XCTestCase {
         for _ in 0..<8 where !ownership.isHittable { app.swipeUp() }
         ownership.tap()
         let export = app.buttons["ownership.cards.\(deckID)"]
+        for _ in 0..<8 where !export.isHittable { app.swipeUp() }
         XCTAssertTrue(export.waitForExistence(timeout: 10))
         export.tap()
         chooseLocalDestination(app) { export.tap() }
@@ -179,8 +189,9 @@ final class OwnershipJourneyTests: XCTestCase {
             let button = app.buttons[identifier]
             for _ in 0..<8 where !button.isHittable { app.swipeUp() }
             button.tap()
+            chooseLocalDestination(app) { button.tap() }
             XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 10))
-            _ = cancelExporter(app)
+            guard cancelExporter(app) else { return }
         }
     }
 }
