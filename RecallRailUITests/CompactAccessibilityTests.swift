@@ -17,8 +17,16 @@ final class CompactAccessibilityTests: XCTestCase {
             scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
                 .press(forDuration: 0.05, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)))
         }
-        guard button.exists, button.isHittable else {
-            XCTFail("Cannot reach \(id). \(app.debugDescription)")
+        // AX may call a button hittable even when its center is under the
+        // navigation bar (AX5 put Again at y=52 while the bar ended at y=168).
+        // Scroll down until its tap point is inside the visible content viewport.
+        let barBottom = app.navigationBars.firstMatch.frame.maxY
+        for _ in 0..<8 where button.exists && button.frame.midY <= barBottom + 8 {
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+                .press(forDuration: 0.05, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)))
+        }
+        guard button.exists, button.isHittable, button.frame.midY > barBottom + 8 else {
+            XCTFail("Cannot reach \(id) outside navigation bar. \(app.debugDescription)")
             return
         }
         XCTAssertGreaterThanOrEqual(button.frame.height, 44, id)
