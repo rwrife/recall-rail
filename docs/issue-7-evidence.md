@@ -1,5 +1,11 @@
 # Issue #7 candidate evidence
 
+## Exact-head Apple status (2026-10-20)
+
+Run 39131514302 on `e0b9e0b6d5a00a5422dc4fb8e150024cc505c61c` passed Linux package/policy and native Swift suites. The pinned iPhone suite ran 5 tests: practice and compact accessibility passed; all three ownership journeys still failed in the real Files destination. The AX dump proves the picker had reached the app-owned `Recall Rail/Exports` folder and still exposed `Save`, Disabled. It also exposes the separate test defect: the picker’s Cancel control is `Other ... label: 'Cancel'`, not a Button, so the old dismissal loop could only tap Files BackButton and never close the sheet.
+
+`53a6aae` changes Cancel lookup to the exact accessibility label and moves the iOS job from `macos-15` to `macos-26` to determine whether the disabled local Files provider is host-image behavior. The exact Xcode 26.0.1/17A400/SDK 26.0 assertion remains. A runtime step now checks the exact iOS 26.0 simulator runtime and requests it only when absent. This is a hypothesis, not Apple evidence. No export, restore, archive, upload, or processed TestFlight build is claimed until this exact-head CI completes.
+
 ## Exact-head Apple status (2026-10-18)
 
 [CI run 39125241071](https://github.com/rwrife/recall-rail/actions/runs/39125241071) on `77ed12520c69277625a73bf65c42a7ff86328f14`: Linux package/policy PASS; pinned native Swift package and UI-target compilation reached simulator execution. Five UI tests ran, seven assertions failed. Compact accessibility test failed during its *initial app launch* (`Failed to get launch progress`, after ~90 seconds); therefore the AX5 grade-scroll repair in this head did **not** run and cannot be called verified. Ownership journeys again showed `Save`, Disabled inside the real `Recall Rail/Exports` Files provider folder and could not dismiss the exporter. Both cases are still open. Native release-simulator build and full built-metadata gate were skipped after UI failure. Do not promote or merge draft PR #14 or close issue #7. No signed archive, upload, or processed TestFlight build ID exists. The separate `swiftc -frontend -parse RecallRailUITests/CompactAccessibilityTests.swift` and `git diff --check` ran locally without diagnostics; they prove syntax/whitespace only.
