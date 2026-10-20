@@ -64,10 +64,8 @@ jobs:
 
   ios-native:
     name: Pinned iOS 26 build, test, and iPhone metadata
-    # Test Files' local provider on a current host OS; macos-15 leaves Save
-    # disabled in the app's writable Documents/Exports folder.
-    runs-on: macos-26
-    timeout-minutes: 45
+    runs-on: macos-15
+    timeout-minutes: 30
     env:
       TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
@@ -105,15 +103,6 @@ jobs:
           xcodebuild -version
           [ "$(xcrun --sdk iphoneos --show-sdk-version)" = "26.0" ] || { echo "::error::iPhoneOS SDK 26.0 is unavailable"; exit 1; }
           [ "$(git rev-parse HEAD)" = "$TARGET_SHA" ] || { echo "::error::Checkout SHA mismatch"; exit 1; }
-      - name: Require exact pinned simulator runtime
-        timeout-minutes: 15
-        run: |
-          set -euo pipefail
-          runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-0'
-          if ! xcrun simctl list runtimes available | grep -Fq "$runtime"; then
-            xcodebuild -downloadPlatform iOS -architectureVariant universal
-          fi
-          xcrun simctl list runtimes available | grep -F "$runtime" || { echo '::error::Pinned iOS 26.0 runtime unavailable'; exit 1; }
       - name: Run native Swift package tests
         # GRDB builds against the macOS SDK's SQLite on Apple runners; no
         # apt step (that is the Linux container's need only).

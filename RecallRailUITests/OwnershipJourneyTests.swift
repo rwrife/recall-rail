@@ -4,19 +4,18 @@ import XCTest
 @MainActor
 final class OwnershipJourneyTests: XCTestCase {
     private func cancelExporter(_ app: XCUIApplication) -> Bool {
-        // The picker's Cancel control is not surfaced as a Button; tapping the
-        // Files back button only navigates folders and leaves the sheet up.
-        let cancel = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label == 'Cancel'")).firstMatch
-        guard cancel.waitForExistence(timeout: 5), cancel.isHittable else {
-            XCTFail("System document exporter offers no Cancel control: \(app.debugDescription)")
-            return false
-        }
-        cancel.tap()
-        let deadline = Date().addingTimeInterval(5)
-        while Date() < deadline {
-            if !app.buttons["Save"].exists && app.buttons["ownership.backup"].isHittable { return true }
-            usleep(200_000)
+        // The host screen also owns a BackButton; only tap picker controls.
+        let picker = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
+        for _ in 0..<3 {
+            let cancel = app.buttons.matching(NSPredicate(format: "label ==[c] 'cancel'")).firstMatch
+            if cancel.exists { cancel.tap() } else if picker.buttons["BackButton"].exists {
+                picker.buttons["BackButton"].tap()
+            } else { break }
+            let deadline = Date().addingTimeInterval(3)
+            while Date() < deadline {
+                if !app.buttons["Save"].exists && app.buttons["ownership.backup"].isHittable { return true }
+                usleep(200_000)
+            }
         }
         XCTFail("System document exporter could not be dismissed: \(app.debugDescription)")
         return false
