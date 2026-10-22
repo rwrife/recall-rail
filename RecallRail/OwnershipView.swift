@@ -103,9 +103,11 @@ struct OwnershipView: View {
                 let url = try result.get()
                 guard url.startAccessingSecurityScopedResource() else { throw OwnershipError.invalid("File permission unavailable") }
                 defer { url.stopAccessingSecurityScopedResource() }
-                let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
-                guard size <= BackupCodec.maximumBytes else { throw OwnershipError.invalid("Backup too large") }
-                imported = try Data(contentsOf: url); refreshPreview()
+                let file = try FileHandle(forReadingFrom: url)
+                defer { try? file.close() }
+                let data = try file.read(upToCount: BackupCodec.maximumBytes + 1) ?? Data()
+                guard data.count <= BackupCodec.maximumBytes else { throw OwnershipError.invalid("Backup too large") }
+                imported = data; refreshPreview() // ponytail: single bounded read; stream only if backup limit grows.
             }
         }
         .confirmationDialog("Restore this preview?", isPresented: $confirmRestore) {
