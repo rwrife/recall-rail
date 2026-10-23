@@ -115,6 +115,7 @@ jobs:
           bash scripts/check_zero_network.sh
           bash scripts/check_native_only.sh
       - name: Test native iPhone simulator app
+        id: ios-test
         run: |
           set -euo pipefail
           mkdir -p AppleEvidence
@@ -131,6 +132,14 @@ jobs:
             -derivedDataPath DerivedData \
             -resultBundlePath AppleEvidence/PracticeTests.xcresult \
             test 2>&1 | tee AppleEvidence/test.log
+      - name: Diagnose Files provider without exporting user paths
+        if: ${{ always() && steps.ios-test.outcome == 'failure' }}
+        run: |
+          mkdir -p AppleEvidence
+          if ! python3 scripts/probe_files_provider.py > AppleEvidence/files-provider.json 2>/dev/null; then
+            printf '%s\n' '{"probe_failed":true}' > AppleEvidence/files-provider.json
+          fi
+          python3 scripts/probe_files_provider.py --self-test
       - name: Preserve built test app metadata even when UI tests fail
         if: always()
         run: |
