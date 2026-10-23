@@ -27,17 +27,26 @@ def summarize(apps, app_data):
 
 
 def main():
-    # simctl listapps emits an OpenStep plist; macOS plutil converts it to JSON.
-    listed = subprocess.check_output(["xcrun", "simctl", "listapps", "booted"], timeout=30)
-    converted = subprocess.check_output(["plutil", "-convert", "json", "-o", "-", "-"], input=listed, timeout=30)
+    # Never emit command output: listapps contains private sandbox paths.
+    stage = "listapps"
     try:
-        app_data = subprocess.check_output(
-            ["xcrun", "simctl", "get_app_container", "booted", "com.infinityball.recallrail", "data"],
-            text=True, stderr=subprocess.DEVNULL, timeout=30,
-        ).strip()
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-        app_data = None
-    print(json.dumps(summarize(json.loads(converted), app_data), sort_keys=True))
+        listed = subprocess.check_output(["xcrun", "simctl", "listapps", "booted"], stderr=subprocess.DEVNULL, timeout=30)
+        stage = "plutil"
+        converted = subprocess.check_output(["plutil", "-convert", "json", "-o", "-", "-"], input=listed, stderr=subprocess.DEVNULL, timeout=30)
+        stage = "parse"
+        apps = json.loads(converted)
+        stage = "app_container"
+        try:
+            app_data = subprocess.check_output(
+                ["xcrun", "simctl", "get_app_container", "booted", "com.infinityball.recallrail", "data"],
+                text=True, stderr=subprocess.DEVNULL, timeout=30,
+            ).strip()
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            app_data = None
+        print(json.dumps(summarize(apps, app_data), sort_keys=True))
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError, TypeError, KeyError) as error:
+        print(json.dumps({"probe_failed_at": stage, "error_type": type(error).__name__}, sort_keys=True))
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -136,9 +136,8 @@ jobs:
         if: ${{ always() && steps.ios-test.outcome == 'failure' }}
         run: |
           mkdir -p AppleEvidence
-          if ! python3 scripts/probe_files_provider.py > AppleEvidence/files-provider.json 2>/dev/null; then
-            printf '%s\n' '{"probe_failed":true}' > AppleEvidence/files-provider.json
-          fi
+          python3 scripts/probe_files_provider.py > AppleEvidence/files-provider.json 2>/dev/null || true
+          [ -s AppleEvidence/files-provider.json ] || printf '%s\n' '{"probe_failed":true}' > AppleEvidence/files-provider.json
           python3 scripts/probe_files_provider.py --self-test
       - name: Preserve built test app metadata even when UI tests fail
         if: always()
