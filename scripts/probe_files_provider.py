@@ -44,6 +44,12 @@ def main():
     stage = "resolve_udid"
     try:
         udid = resolve_udid()
+        stage = "boot"
+        subprocess.run(["xcrun", "simctl", "boot", udid], stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, timeout=60, check=False)
+        stage = "bootstatus"
+        subprocess.run(["xcrun", "simctl", "bootstatus", udid, "-b"], stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, timeout=120, check=True)
         stage = "listapps"
         listed = subprocess.check_output(["xcrun", "simctl", "listapps", udid], stderr=subprocess.DEVNULL, timeout=60)
         stage = "plutil"
