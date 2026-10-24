@@ -2,6 +2,8 @@
 
 ## Cold CoreSimulator pre-test blocker (2026-10-24)
 
+[Run 40099721495](https://github.com/rwrife/recall-rail/actions/runs/40099721495) at `1b3fbf11593d8b582b6dbef7d873bc5460b8dca6`: Linux PASS. UDID resolution and `bootstatus` succeeded this time (retry/longer-wait change progressed past the earlier cold-start timeouts), but `simctl launch com.apple.DocumentsApp` hit the 60s bound (`probe_failed_at: launch_files`, `TimeoutExpired`). UI tests, build, archive, signing, TestFlight: not reached. Launch bound raised to 240s and job timeout to 50 min; this remains an environment experiment, not an app fix.
+
 [Run 40091833321](https://github.com/rwrife/recall-rail/actions/runs/40091833321) at `04a9f446a167d59576205fb424ec9d1e54b3817d`: Linux PASS; native package/policy PASS. Native runner attempt 1 timed out during `simctl bootstatus -b` after 120s. Attempt 2 on a distinct runner timed out on `simctl list devices available -j` after 30s. Neither attempt reached UI tests, built app, archive, signing, or TestFlight. New bounded retries for the cold CoreSimulator listing and a longer first boot wait are an environment acceptance experiment, not evidence of an app fix. Keep PR draft and issue open pending native results.
 
 ## Exact-head Files-provider experiment (2026-10-24)

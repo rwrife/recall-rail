@@ -65,7 +65,7 @@ jobs:
   ios-native:
     name: Pinned iOS 26 build, test, and iPhone metadata
     runs-on: macos-15
-    timeout-minutes: 35
+    timeout-minutes: 50
     env:
       TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:

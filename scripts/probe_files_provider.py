@@ -63,8 +63,11 @@ def main(warm=False):
                        stderr=subprocess.DEVNULL, timeout=300, check=True)
         if warm:
             stage = "launch_files"
+            # First DocumentsApp launch on a fresh hosted device is the
+            # FileProvider daemon's cold start; 60s timed out on run
+            # 40099721495 after boot succeeded.
             subprocess.run(["xcrun", "simctl", "launch", udid, "com.apple.DocumentsApp"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60, check=True)
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=240, check=True)
             print(json.dumps({"files_app_launched": True}, sort_keys=True))
             return
         stage = "listapps"
@@ -123,6 +126,7 @@ if __name__ == "__main__":
                 assert json.loads(buf.getvalue()) == {"files_app_launched": True}
                 assert mock_run.call_count == 3
                 assert mock_run.call_args_list[1].kwargs["timeout"] == 300
+                assert mock_run.call_args_list[2].kwargs["timeout"] == 240
             with patch("subprocess.run") as mock_run, patch.dict(os.environ, {"RECALL_SIM_UDID": "test-id"}):
                 mock_run.side_effect = [None, subprocess.TimeoutExpired("bootstatus", 300)]
                 with redirect_stdout(io.StringIO()) as failure:
