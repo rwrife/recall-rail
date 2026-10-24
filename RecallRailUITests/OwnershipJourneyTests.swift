@@ -53,23 +53,36 @@ final class OwnershipJourneyTests: XCTestCase {
         return true
     }
 
-    /// The system document exporter runs out-of-process; the extension can silently
-    /// present nothing. Re-present the sheet, bounded, instead of probing a stale tree.
+    /// The system document exporter runs out-of-process; the first presentation
+    /// on a cold hosted device can exceed 12s (run 40102136129: all three
+    /// journeys timed out the 12s wait and then retried a tap INTO the
+    /// late-presenting sheet, hitting hit point {-1,-1}). Treat Save as proof
+    /// of presentation even when the filename field has not bridged yet, and
+    /// never re-tap while a picker is already on screen.
+    private func pickerPresented(_ app: XCUIApplication) -> Bool {
+        app.textFields["DOCPicker.filenameTextField"].exists || app.buttons["Save"].exists
+    }
+
+    private func waitForPresentation(_ app: XCUIApplication, seconds: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if pickerPresented(app) { return true }
+            usleep(500_000)
+        }
+        return pickerPresented(app)
+    }
+
     private func chooseLocalDestination(_ app: XCUIApplication, reexport: () -> Void) {
-        let filename = app.textFields["DOCPicker.filenameTextField"]
         for attempt in 0..<3 {
-            if attempt > 0 {
-                let cancel = app.buttons["Cancel"]
-                if cancel.exists && cancel.isHittable { cancel.tap() }
-                usleep(500_000)
-                reexport()
-            }
-            if filename.waitForExistence(timeout: 12) {
+            if waitForPresentation(app, seconds: 30) {
                 if waitSaveEnabled(app, seconds: 8) { return }
                 if navigateToAppFileLocation(app) && waitSaveEnabled(app, seconds: 5) { return }
                 XCTFail("Document exporter offers no writable local destination: \(app.debugDescription)")
                 return
             }
+            // ponytail: one bounded re-presentation when system picker is absent;
+            // add a host-environment probe if cold Files needs longer than 90s.
+            if attempt < 2 && !pickerPresented(app) { reexport() }
         }
         XCTFail("System document exporter never presented after 3 attempts: \(app.debugDescription)")
     }

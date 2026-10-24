@@ -1,6 +1,8 @@
 # Issue #7 candidate evidence
 
-## Cold CoreSimulator pre-test blocker (2026-10-24)
+## Cold document picker presentation evidence (2026-10-24)
+
+[Run 40102136129](https://github.com/rwrife/recall-rail/actions/runs/40102136129) at `1372f83491f55b5a0267e78625bd155f1fa04151`: Files warm-up succeeded (`files-warm.json: {"files_app_launched": true}`). All unit, storage, golden, and practice UI tests passed (18/21). The three ownership save journeys failed with `Failed to not hittable: Button ... hit point {-1,-1}` on the re-tap of the host export button after the 12s `DOCPicker.filenameTextField` wait expired. Hypothesis (unproven until the next Apple run): the out-of-process picker was presenting late and the retry tapped beneath it. Change under test: 30s presentation wait with `Save` accepted as a presentation signal, and no re-tap while a picker is visible. If the next run still fails, discard this hypothesis.
 
 [Run 40099721495](https://github.com/rwrife/recall-rail/actions/runs/40099721495) at `1b3fbf11593d8b582b6dbef7d873bc5460b8dca6`: Linux PASS. UDID resolution and `bootstatus` succeeded this time (retry/longer-wait change progressed past the earlier cold-start timeouts), but `simctl launch com.apple.DocumentsApp` hit the 60s bound (`probe_failed_at: launch_files`, `TimeoutExpired`). UI tests, build, archive, signing, TestFlight: not reached. Launch bound raised to 240s and job timeout to 50 min; this remains an environment experiment, not an app fix.
 
