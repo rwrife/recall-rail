@@ -122,7 +122,10 @@ jobs:
         id: warm-files
         run: |
           set -euo pipefail
-          udid=$(python3 scripts/probe_files_provider.py --udid)
+          mkdir -p AppleEvidence
+          python3 scripts/probe_files_provider.py --udid > AppleEvidence/files-resolve.txt
+          udid=$(<AppleEvidence/files-resolve.txt)
+          [[ "$udid" =~ ^[0-9A-Fa-f-]{36}$ ]] || { echo "::error::Simulator UDID resolution failed (see artifact)"; exit 1; }
           echo "UDID=$udid" >> "$GITHUB_OUTPUT"
           export RECALL_SIM_UDID="$udid"
           python3 scripts/probe_files_provider.py --warm | tee AppleEvidence/files-warm.json

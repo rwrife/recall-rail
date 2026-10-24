@@ -26,11 +26,22 @@ def summarize(apps, app_data):
     }
 
 
+def _simctl_json(args, timeout, attempts=3):
+    # CoreSimulator daemon cold-start can push the first hosted simctl call
+    # past its timeout; bounded retries keep the probe honest about hosts
+    # that are genuinely stuck (all attempts fail -> raise).
+    for attempt in range(attempts):
+        try:
+            return json.loads(subprocess.check_output(
+                ["xcrun", "simctl", *args], stderr=subprocess.DEVNULL, timeout=timeout))
+        except subprocess.TimeoutExpired:
+            if attempt == attempts - 1:
+                raise
+    raise RuntimeError("unreachable: no simulator list")
+
+
 def resolve_udid():
-    listing = json.loads(subprocess.check_output(
-        ["xcrun", "simctl", "list", "devices", "available", "-j"],
-        stderr=subprocess.DEVNULL, timeout=30,
-    ))
+    listing = _simctl_json(["list", "devices", "available", "-j"], 60)
     for devices in listing["devices"].values():
         for device in devices:
             if device.get("name") == "iPhone 17":
@@ -49,7 +60,7 @@ def main(warm=False):
                        stderr=subprocess.DEVNULL, timeout=60, check=False)
         stage = "bootstatus"
         subprocess.run(["xcrun", "simctl", "bootstatus", udid, "-b"], stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL, timeout=120, check=True)
+                       stderr=subprocess.DEVNULL, timeout=300, check=True)
         if warm:
             stage = "launch_files"
             subprocess.run(["xcrun", "simctl", "launch", udid, "com.apple.DocumentsApp"],
@@ -91,8 +102,18 @@ if __name__ == "__main__":
             assert result["app_exports_directory_exists"]
             assert not summarize({}, None)["local_storage_group_registered"]
             from unittest.mock import patch
-            with patch("subprocess.check_output", return_value=b'{"devices":{"runtime":[{"name":"iPhone 17","udid":"test-id"}]}}'):
+            with patch("subprocess.check_output", side_effect=[
+                subprocess.TimeoutExpired("simctl", 60),
+                b'{"devices":{"runtime":[{"name":"iPhone 17","udid":"test-id"}]}}',
+            ]) as mock_list:
                 assert resolve_udid() == "test-id"
+                assert mock_list.call_count == 2
+            with patch("subprocess.check_output", side_effect=subprocess.TimeoutExpired("simctl", 60)) as mock_list:
+                try:
+                    resolve_udid()
+                    raise AssertionError("retry bound did not fail closed")
+                except subprocess.TimeoutExpired:
+                    assert mock_list.call_count == 3
             with patch("subprocess.run") as mock_run, patch.dict(os.environ, {"RECALL_SIM_UDID": "test-id"}):
                 import io
                 from contextlib import redirect_stdout
@@ -101,9 +122,24 @@ if __name__ == "__main__":
                     main(warm=True)
                 assert json.loads(buf.getvalue()) == {"files_app_launched": True}
                 assert mock_run.call_count == 3
+                assert mock_run.call_args_list[1].kwargs["timeout"] == 300
+            with patch("subprocess.run") as mock_run, patch.dict(os.environ, {"RECALL_SIM_UDID": "test-id"}):
+                mock_run.side_effect = [None, subprocess.TimeoutExpired("bootstatus", 300)]
+                with redirect_stdout(io.StringIO()) as failure:
+                    try:
+                        main(warm=True)
+                        raise AssertionError("bootstatus timeout did not fail closed")
+                    except SystemExit as error:
+                        assert error.code == 1
+                assert json.loads(failure.getvalue())["probe_failed_at"] == "bootstatus"
+            # ponytail: bounded simctl retries; full daemon health only native CI can establish.
         print("Files provider probe self-test: PASS")
     elif sys.argv[1:] == ["--udid"]:
-        print(resolve_udid())
+        try:
+            print(resolve_udid())
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, ValueError, KeyError, LookupError) as error:
+            print(json.dumps({"probe_failed_at": "resolve_udid", "error_type": type(error).__name__}))
+            sys.exit(1)
     elif sys.argv[1:] == ["--warm"]:
         main(warm=True)
     else:

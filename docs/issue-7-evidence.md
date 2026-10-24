@@ -1,5 +1,9 @@
 # Issue #7 candidate evidence
 
+## Cold CoreSimulator pre-test blocker (2026-10-24)
+
+[Run 40091833321](https://github.com/rwrife/recall-rail/actions/runs/40091833321) at `04a9f446a167d59576205fb424ec9d1e54b3817d`: Linux PASS; native package/policy PASS. Native runner attempt 1 timed out during `simctl bootstatus -b` after 120s. Attempt 2 on a distinct runner timed out on `simctl list devices available -j` after 30s. Neither attempt reached UI tests, built app, archive, signing, or TestFlight. New bounded retries for the cold CoreSimulator listing and a longer first boot wait are an environment acceptance experiment, not evidence of an app fix. Keep PR draft and issue open pending native results.
+
 ## Exact-head Files-provider experiment (2026-10-24)
 
 [CI run 39978240134](https://github.com/rwrife/recall-rail/actions/runs/39978240134) at `09dd6b38d1d329d5464075c8f5c0a7700fdbadea`: Linux package/policy passed. Pinned iPhone simulator ran five UI journeys: compact accessibility and practice passed; all three ownership save journeys failed with the unchanged `Document exporter offers no writable local destination` (Exports destination, populated filename, Save disabled). Artifact `files-provider.json` reports `{"probe_failed_at":"listapps","error_type":"TimeoutExpired"}`. This shows the post-test simulator `listapps` probe hung, **not** why Save was disabled. It cannot establish FileProvider readiness during the test. Release simulator build and metadata step were skipped; no signed archive, upload, or processed TestFlight build exists.
