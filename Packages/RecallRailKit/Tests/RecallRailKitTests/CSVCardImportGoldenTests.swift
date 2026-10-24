@@ -315,4 +315,23 @@ final class CSVCardImportGoldenTests: XCTestCase {
         XCTAssertEqual(cards[0].updatedAt, commitAt)
         XCTAssertEqual(cards[0].prompt, "New")
     }
+    func testSpreadsheetSafeCellsAndLosslessTextRoundtrip() {
+        let values = ["=1+1", "+SUM(1)", "-2", "@SUM(1)", "\tformula", "\rformula", "\nformula", "  =1", " \ttext", "'literal", "'=literal", "''literal", "normal"]
+        let now = Date(timeIntervalSince1970: 100)
+        let cards = values.enumerated().map { index, value in
+            Card(deckID: StableID(), prompt: value, answer: value, hint: value,
+                 source: value, tags: ["'=tag"], sortOrder: index, createdAt: now, updatedAt: now)
+        }
+        let csv = CSVCardImport.exportCSV(cards: cards)
+        let rows = CSVDocument(text: csv).rows
+        for (index, value) in values.enumerated() {
+            let cell = rows[index + 1].fields[1]
+            XCTAssertEqual(cell, value == "normal" ? value : "'" + value)
+        }
+        let preview = CSVCardImport.preview(text: csv, existingCards: cards)
+        XCTAssertTrue(preview.errors.isEmpty)
+        XCTAssertEqual(preview.unchanged.count, cards.count)
+        XCTAssertEqual(CSVCardImport.preview(text: "prompt,answer\n'=literal,'literal\n", existingCards: []).additions.first?.prompt, "'=literal")
+    }
+
 }

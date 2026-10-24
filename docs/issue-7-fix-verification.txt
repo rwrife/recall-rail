@@ -1,0 +1,70 @@
+Docker recall-rail-issue7-ci --user 1001:1001 HOME=/tmp; Swift scratch /tmp/store and /tmp/kit; warnings as errors; frontend parse of app/native/UI files.
+
+.issue7-red.log
+Test Case 'OwnershipTests.testHostileNestedSchemasAndBounds' started at 2026-10-10 11:22:59.858
+/workspace/Packages/RecallStore/Tests/RecallStoreTests/OwnershipTests.swift:51: error: OwnershipTests.testHostileNestedSchemasAndBounds : XCTAssertThrowsError failed: did not throw error -
+/workspace/Packages/RecallStore/Tests/RecallStoreTests/OwnershipTests.swift:51: error: OwnershipTests.testHostileNestedSchemasAndBounds : XCTAssertThrowsError failed: did not throw error -
+/workspace/Packages/RecallStore/Tests/RecallStoreTests/OwnershipTests.swift:60: error: OwnershipTests.testHostileNestedSchemasAndBounds : XCTAssertThrowsError failed: did not throw error -
+/workspace/Packages/RecallStore/Tests/RecallStoreTests/OwnershipTests.swift:60: error: OwnershipTests.testHostileNestedSchemasAndBounds : XCTAssertThrowsError failed: did not throw error -
+Test Case 'OwnershipTests.testHostileNestedSchemasAndBounds' failed (0.007 seconds)
+
+.issue7-privacy-red.log
+Test Case 'OwnershipTests.testHostileNestedSchemasAndBounds' started at 2026-10-10 11:24:04.722
+Test Case 'OwnershipTests.testHostileNestedSchemasAndBounds' passed (0.003 seconds)
+Test Case 'OwnershipTests.testLegacyAndUnknownClockRecordsBlockExportsWithoutMutation' started at 2026-10-10 11:24:06.161
+/workspace/Packages/RecallStore/Tests/RecallStoreTests/OwnershipTests.swift:76: error: OwnershipTests.testLegacyAndUnknownClockRecordsBlockExportsWithoutMutation : XCTAssertThrowsError failed: did not throw error -
+/workspace/Packages/RecallStore/Tests/RecallStoreTests/OwnershipTests.swift:77: error: OwnershipTests.testLegacyAndUnknownClockRecordsBlockExportsWithoutMutation : XCTAssertThrowsError failed: did not throw error -
+/workspace/Packages/RecallStore/Tests/RecallStoreTests/OwnershipTests.swift:83: error: OwnershipTests.testLegacyAndUnknownClockRecordsBlockExportsWithoutMutation : XCTAssertThrowsError failed: did not throw error -
+Test Case 'OwnershipTests.testLegacyAndUnknownClockRecordsBlockExportsWithoutMutation' failed (0.006 seconds)
+	 Executed 16 tests, with 3 failures (0 unexpected) in 1.509 (1.509) seconds
+	 Executed 16 tests, with 3 failures (0 unexpected) in 1.509 (1.509) seconds
+
+.issue7-final.log
+Test Suite 'All tests' started at 2026-10-10 11:26:03.664
+Test Case 'OwnershipTests.testHostileNestedSchemasAndBounds' started at 2026-10-10 11:26:03.840
+Test Case 'OwnershipTests.testHostileNestedSchemasAndBounds' passed (0.003 seconds)
+Test Case 'OwnershipTests.testLegacyAndUnknownClockRecordsBlockExportsWithoutMutation' started at 2026-10-10 11:26:05.344
+Test Case 'OwnershipTests.testLegacyAndUnknownClockRecordsBlockExportsWithoutMutation' passed (0.009 seconds)
+	 Executed 17 tests, with 0 failures (0 unexpected) in 1.573 (1.573) seconds
+	 Executed 73 tests, with 0 failures (0 unexpected) in 1.829 (1.829) seconds
+Test Suite 'All tests' passed at 2026-10-10 11:26:05.496
+	 Executed 73 tests, with 0 failures (0 unexpected) in 1.829 (1.829) seconds
+Test Suite 'All tests' started at 2026-10-10 11:26:07.820
+	 Executed 77 tests, with 0 failures (0 unexpected) in 0.111 (0.111) seconds
+Test Suite 'All tests' passed at 2026-10-10 11:26:07.932
+	 Executed 77 tests, with 0 failures (0 unexpected) in 0.111 (0.111) seconds
+
+.issue7-release-green.log
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.002s
+
+OK
+
+.issue7-structure-green.log
+............
+----------------------------------------------------------------------
+Ran 12 tests in 0.194s
+
+OK
+
+Project contract, zero-network with self-test, native-only, release shell syntax, git diff --check: PASS.
+Swift frontend parse passed; native Apple type-check/UI/signing not executed.
+
+Final additional read-path regression (test first):
+Test Case 'OwnershipTests.testUnknownAttemptFieldsRemainCorruptAfterPrivateRestore' started at 2026-10-10 11:28:23.907
+/workspace/Packages/RecallStore/Tests/RecallStoreTests/OwnershipTests.swift:113: error: OwnershipTests.testUnknownAttemptFieldsRemainCorruptAfterPrivateRestore : XCTAssertThrowsError failed: did not throw error -
+Test Case 'OwnershipTests.testUnknownAttemptFieldsRemainCorruptAfterPrivateRestore' failed (0.005 seconds)
+	 Executed 18 tests, with 1 failure (0 unexpected) in 1.805 (1.805) seconds
+	 Executed 18 tests, with 1 failure (0 unexpected) in 1.805 (1.805) seconds
+Test Suite 'All tests' started at 2026-10-10 11:28:36.432
+Test Case 'OwnershipTests.testUnknownAttemptFieldsRemainCorruptAfterPrivateRestore' started at 2026-10-10 11:28:38.166
+Test Case 'OwnershipTests.testUnknownAttemptFieldsRemainCorruptAfterPrivateRestore' passed (0.005 seconds)
+	 Executed 18 tests, with 0 failures (0 unexpected) in 1.573 (1.573) seconds
+	 Executed 74 tests, with 0 failures (0 unexpected) in 1.826 (1.826) seconds
+Test Suite 'All tests' passed at 2026-10-10 11:28:38.261
+	 Executed 74 tests, with 0 failures (0 unexpected) in 1.826 (1.826) seconds
+Test Suite 'All tests' started at 2026-10-10 11:28:38.673
+	 Executed 77 tests, with 0 failures (0 unexpected) in 0.232 (0.232) seconds
+Test Suite 'All tests' passed at 2026-10-10 11:28:38.906
+	 Executed 77 tests, with 0 failures (0 unexpected) in 0.232 (0.232) seconds
