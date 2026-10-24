@@ -1,5 +1,11 @@
 # Issue #7 candidate evidence
 
+## Exact-head Files-provider experiment (2026-10-24)
+
+[CI run 39978240134](https://github.com/rwrife/recall-rail/actions/runs/39978240134) at `09dd6b38d1d329d5464075c8f5c0a7700fdbadea`: Linux package/policy passed. Pinned iPhone simulator ran five UI journeys: compact accessibility and practice passed; all three ownership save journeys failed with the unchanged `Document exporter offers no writable local destination` (Exports destination, populated filename, Save disabled). Artifact `files-provider.json` reports `{"probe_failed_at":"listapps","error_type":"TimeoutExpired"}`. This shows the post-test simulator `listapps` probe hung, **not** why Save was disabled. It cannot establish FileProvider readiness during the test. Release simulator build and metadata step were skipped; no signed archive, upload, or processed TestFlight build exists.
+
+Next head experiments with an explicit bounded pre-test boot and Files app launch, followed by tests addressed to that **same UDID** rather than a name-matched simulator. A separate `files-warm.json` emits only a boolean or stage/error type; CI fails closed if warm-up fails. Local Python probe self-test, 13 structural tests, 7 release tests, policy gates and actionlint passed. These local checks establish no Apple behavior. If the fresh Apple run again has disabled Save, reject the cold-daemon hypothesis rather than implying picker success. PR #14 remains draft; issue #7 remains open pending full native/export/restore and release evidence.
+
 ## Files-provider diagnostic gate (2026-10-23)
 
 Run 39782971639 (`1b24699`, macos-15) was re-read from its job log: practice and compact accessibility passed; all three ownership journeys failed identically. The AX dump shows `DOC.browsingRoot ... Title: Exports`, filename `RecallRail-cards`, and `Save` Disabled, so the app-owned Exports folder was reached and the system exporter still refused it. Earlier hosted runs on `macos-26` gave the same result. No Apple-confirmed cause exists; the Apple forum thread 763549 is a developer report of disabled Save on iOS 18 simulators, not proof for iOS 26.

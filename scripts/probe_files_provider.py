@@ -38,22 +38,28 @@ def resolve_udid():
     raise LookupError("iPhone 17 unavailable")
 
 
-def main():
+def main(warm=False):
     # Never emit command output: listapps contains private sandbox paths.
-    # The test run may leave no booted device, so resolve the pinned UDID.
+    # Use the exact test destination after xcodebuild shuts its device down.
     stage = "resolve_udid"
     try:
-        udid = resolve_udid()
+        udid = os.environ.get("RECALL_SIM_UDID") or resolve_udid()
         stage = "boot"
         subprocess.run(["xcrun", "simctl", "boot", udid], stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL, timeout=60, check=False)
         stage = "bootstatus"
         subprocess.run(["xcrun", "simctl", "bootstatus", udid, "-b"], stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL, timeout=120, check=True)
+        if warm:
+            stage = "launch_files"
+            subprocess.run(["xcrun", "simctl", "launch", udid, "com.apple.DocumentsApp"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60, check=True)
+            print(json.dumps({"files_app_launched": True}, sort_keys=True))
+            return
         stage = "listapps"
         listed = subprocess.check_output(["xcrun", "simctl", "listapps", udid], stderr=subprocess.DEVNULL, timeout=60)
         stage = "plutil"
-        converted = subprocess.check_output(["plutil", "-convert", "json", "-o", "-", "-"], input=listed, stderr=subprocess.DEVNULL, timeout=30)
+        converted = subprocess.check_output(["plutil", "-convert", "json", "-o", "-"], input=listed, stderr=subprocess.DEVNULL, timeout=30)
         stage = "parse"
         apps = json.loads(converted)
         stage = "app_container"
@@ -64,7 +70,8 @@ def main():
             ).strip()
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             app_data = None
-        print(json.dumps(summarize(apps, app_data), sort_keys=True))
+        result = summarize(apps, app_data)
+        print(json.dumps(result, sort_keys=True))
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, LookupError, ValueError, TypeError, KeyError) as error:
         print(json.dumps({"probe_failed_at": stage, "error_type": type(error).__name__}, sort_keys=True))
         sys.exit(1)
@@ -86,6 +93,18 @@ if __name__ == "__main__":
             from unittest.mock import patch
             with patch("subprocess.check_output", return_value=b'{"devices":{"runtime":[{"name":"iPhone 17","udid":"test-id"}]}}'):
                 assert resolve_udid() == "test-id"
+            with patch("subprocess.run") as mock_run, patch.dict(os.environ, {"RECALL_SIM_UDID": "test-id"}):
+                import io
+                from contextlib import redirect_stdout
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    main(warm=True)
+                assert json.loads(buf.getvalue()) == {"files_app_launched": True}
+                assert mock_run.call_count == 3
         print("Files provider probe self-test: PASS")
+    elif sys.argv[1:] == ["--udid"]:
+        print(resolve_udid())
+    elif sys.argv[1:] == ["--warm"]:
+        main(warm=True)
     else:
         main()

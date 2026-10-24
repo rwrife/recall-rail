@@ -65,7 +65,7 @@ jobs:
   ios-native:
     name: Pinned iOS 26 build, test, and iPhone metadata
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 35
     env:
       TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
@@ -114,8 +114,23 @@ jobs:
           bash scripts/check_project_contract.sh
           bash scripts/check_zero_network.sh
           bash scripts/check_native_only.sh
+      - name: Warm Files provider on the exact test destination
+        # Cold FileProvider daemon is the surviving hypothesis for the
+        # disabled-Save save journeys. Warm the SAME device the tests will
+        # use (name-based destinations can pick another clone), and fail
+        # closed so a warm run's result is never ambiguous.
+        id: warm-files
+        run: |
+          set -euo pipefail
+          udid=$(python3 scripts/probe_files_provider.py --udid)
+          echo "UDID=$udid" >> "$GITHUB_OUTPUT"
+          export RECALL_SIM_UDID="$udid"
+          python3 scripts/probe_files_provider.py --warm | tee AppleEvidence/files-warm.json
+          grep -q '"files_app_launched": true' AppleEvidence/files-warm.json
       - name: Test native iPhone simulator app
         id: ios-test
+        env:
+          SIM_UDID: ${{ steps.warm-files.outputs.UDID }}
         run: |
           set -euo pipefail
           mkdir -p AppleEvidence
@@ -123,11 +138,12 @@ jobs:
           xcodebuild -version > AppleEvidence/toolchain.txt
           xcrun --sdk iphoneos --show-sdk-version >> AppleEvidence/toolchain.txt
           xcrun simctl list > AppleEvidence/simulators.txt
+          [ -n "$SIM_UDID" ] || { echo "::error::warm step produced no simulator UDID"; exit 1; }
           xcodebuild -project RecallRail.xcodeproj \
             -scheme RecallRail \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -destination "id=$SIM_UDID" \
             CODE_SIGNING_ALLOWED=NO \
             -derivedDataPath DerivedData \
             -resultBundlePath AppleEvidence/PracticeTests.xcresult \

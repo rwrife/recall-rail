@@ -55,4 +55,12 @@ class OwnershipStructureTests(unittest.TestCase):
         self.assertIn('libssl-dev', (ROOT/'.github/workflows/ci.yml').read_text())
         for forbidden in ['altool', 'fastlane', 'tee ']: self.assertNotIn(forbidden, release)
         self.assertIn("state == 'VALID'", (ROOT/'scripts/release_support.py').read_text())
+    def test_files_provider_warm_gate_before_simulator_tests(self):
+        workflow = (ROOT/'.github/workflows/ci.yml').read_text()
+        self.assertLess(workflow.index('Warm Files provider on the exact test destination'), workflow.index('Test native iPhone simulator app'))
+        for token in ['probe_files_provider.py --udid', 'probe_files_provider.py --warm',
+                      'files_app_launched', 'SIM_UDID: ${{ steps.warm-files.outputs.UDID }}',
+                      '-destination "id=$SIM_UDID"']:
+            self.assertIn(token, workflow)
+        self.assertNotIn("-destination 'platform=iOS Simulator,name=iPhone 17'", workflow)
 if __name__ == '__main__': unittest.main()
