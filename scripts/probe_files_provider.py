@@ -73,7 +73,7 @@ def main(warm=False):
         stage = "listapps"
         listed = subprocess.check_output(["xcrun", "simctl", "listapps", udid], stderr=subprocess.DEVNULL, timeout=60)
         stage = "plutil"
-        converted = subprocess.check_output(["plutil", "-convert", "json", "-o", "-"], input=listed, stderr=subprocess.DEVNULL, timeout=30)
+        converted = subprocess.check_output(["plutil", "-convert", "json", "-o", "-", "-"], input=listed, stderr=subprocess.DEVNULL, timeout=30)
         stage = "parse"
         apps = json.loads(converted)
         stage = "app_container"
@@ -136,6 +136,13 @@ if __name__ == "__main__":
                     except SystemExit as error:
                         assert error.code == 1
                 assert json.loads(failure.getvalue())["probe_failed_at"] == "bootstatus"
+            with patch("subprocess.run"), patch("subprocess.check_output", side_effect=[
+                b"plist bytes", b'{"com.apple.DocumentsApp":{"GroupContainers":{}}}', "/app\n",
+            ]) as mock_output, patch.dict(os.environ, {"RECALL_SIM_UDID": "test-id"}):
+                with redirect_stdout(io.StringIO()) as probe:
+                    main()
+                assert json.loads(probe.getvalue())["files_app_registered"]
+                assert mock_output.call_args_list[1].args[0] == ["plutil", "-convert", "json", "-o", "-", "-"]
             # ponytail: bounded simctl retries; full daemon health only native CI can establish.
         print("Files provider probe self-test: PASS")
     elif sys.argv[1:] == ["--udid"]:
