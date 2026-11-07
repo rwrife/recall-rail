@@ -63,4 +63,7 @@ class OwnershipStructureTests(unittest.TestCase):
                       '-destination "id=$SIM_UDID"']:
             self.assertIn(token, workflow)
         self.assertNotIn("-destination 'platform=iOS Simulator,name=iPhone 17'", workflow)
+        self.assertIn("if: ${{ !cancelled() && steps.ios-test.outcome != 'skipped' }}", workflow)
+        self.assertLess(workflow.index('Build native iPhone simulator app'), workflow.index('Verify built bundle and iPhone-only metadata'))
+        self.assertIn('Assert test step passed before completing job', workflow)
 if __name__ == '__main__': unittest.main()

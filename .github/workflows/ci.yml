@@ -171,6 +171,9 @@ jobs:
             done
           fi
       - name: Build native iPhone simulator app
+        # UI picker failure must still fail the job, but should not hide built
+        # bundle/family evidence from the exact same head and toolchain.
+        if: ${{ !cancelled() && steps.ios-test.outcome != 'skipped' }}
         run: |
           set -euo pipefail
           xcodebuild -project RecallRail.xcodeproj \
@@ -182,6 +185,7 @@ jobs:
             -derivedDataPath DerivedData \
             build 2>&1 | tee AppleEvidence/build.log
       - name: Verify built bundle and iPhone-only metadata
+        if: ${{ !cancelled() && steps.ios-test.outcome != 'skipped' }}
         run: |
           set -euo pipefail
           app=$(find DerivedData/Build/Products -maxdepth 2 -name RecallRail.app -type d -print -quit)
@@ -197,6 +201,9 @@ jobs:
           echo "Built bundle: $bundle_id; UIDeviceFamily=$family; privacy manifest embedded: PASS"
           cp "$plist" AppleEvidence/BuiltInfo.plist
           echo "Built bundle: $bundle_id; UIDeviceFamily=$family; privacy manifest embedded: PASS" > AppleEvidence/metadata.txt
+      - name: Assert test step passed before completing job
+        run: |
+          [ "${{ steps.ios-test.outcome }}" = "success" ] || { echo "::error::iOS test step failed; see AppleEvidence/test.log"; exit 1; }
       - name: Export simulator test failure details
         if: always()
         run: |
