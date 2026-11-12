@@ -1,6 +1,14 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
+#if os(Linux)
+let hashTargets: [Target] = [.target(name: "LinuxSHA", linkerSettings: [.linkedLibrary("crypto")])]
+let hashDependencies: [Target.Dependency] = ["LinuxSHA"]
+#else
+let hashTargets: [Target] = []
+let hashDependencies: [Target.Dependency] = []
+#endif
+
 let package = Package(
     name: "RecallStore",
     platforms: [
@@ -20,8 +28,8 @@ let package = Package(
             dependencies: [
                 .product(name: "GRDB", package: "GRDB.swift"),
                 "RecallRailKit",
-            ]
+            ] + hashDependencies
         ),
         .testTarget(name: "RecallStoreTests", dependencies: ["RecallStore"]),
-    ]
+    ] + hashTargets
 )

@@ -25,7 +25,7 @@ Popular education apps such as Quizlet, Duolingo, and Kahoot! show demand for sh
 
 - Local decks, cards, tags, and ordered rehearsal outlines.
 - Explainable three-grade Leitner scheduling with deterministic due dates.
-- Focused text-answer and spoken-rehearsal modes; microphone permission is optional and audio is not retained by default.
+- Focused text-answer and spoken-rehearsal modes; no audio recording, retention, or transcription.
 - Honest mastery states: unseen, learning, due, recently recalled, and insufficient evidence. Skipped cards never count as correct.
 - Session progress, due queue, and append-only attempt history.
 - UTF-8 CSV import/export and versioned JSON backup/restore with validation and preview.
@@ -57,13 +57,13 @@ When Apple ships supported dual-screen APIs, only the layout adapter should gain
 
 ## Privacy, permissions, and data ownership
 
-All decks, cards, attempts, schedules, and settings stay in an app-owned local database: a single SQLite file at `Library/Application Support/RecallRail/recallrail.sqlite` inside the app container, managed by the `RecallStore` GRDB package. Attempts and skips are append-only evidence enforced by database triggers — editing or deleting cards and decks can never rewrite recorded history. The file is included in the device backup; `deleteAllData` (the user-facing "delete all my data" reset) removes it irreversibly. There is no cloud sync, account, network storage, analytics, or tracking. The app requires no account, analytics, ads, trackers, or network service. Microphone access is opt-in per spoken session; denial leaves text/self-grade practice fully useful. The MVP performs no speech transcription, voice identification, or cloud AI. Notifications are optional reminders derived from local due dates and can be disabled without losing core function. Export files are created only on explicit request and become user-owned once shared through the system sheet.
+All decks, cards, attempts, schedules, and persisted sessions stay in an app-owned local database: a single SQLite file at `Library/Application Support/RecallRail/recallrail.sqlite` inside the app container, managed by the `RecallStore` GRDB package. Attempts and skips are append-only evidence enforced by database triggers — editing or deleting cards and decks can never rewrite recorded history. The file participates in device backup; the user-facing "Delete all my data" action erases local records and reclaims SQLite pages. Exported files and existing device backups remain outside that reset. There is no cloud sync, account, network storage, analytics, or tracking. The app requires no account, analytics, ads, trackers, or network service. The explicit spoken-rehearsal permission button requests microphone access without starting capture; denial leaves text/self-grade practice fully useful. The MVP performs no speech transcription, voice identification, or cloud AI. No notification feature or notification authorization is implemented. Export files are created only on explicit request and become user-owned once shared through the system sheet.
 
 Recall Rail is a study aid, not an accredited testing system. Its mastery labels describe app evidence, not guaranteed knowledge or exam outcomes.
 
 ## Status and milestones
 
-Native iPhone authoring, CSV import, and local practice are implemented. Apple CI is wired to build and test the app and its XCUITest journey at the exact triggering head; local Linux checks do not establish an Apple pass. No archive, dual-screen validation, or TestFlight binary exists yet.
+Native iPhone authoring, CSV import, local practice, CSV exports, JSON backup/restore previews and local deletion are implemented as a candidate. Apple CI is wired to build and test the app and its XCUITest journey at the exact triggering head; local Linux checks do not establish an Apple pass. Ownership package tests pass on Linux; native ownership UI and signing remain unverified. No archive, dual-screen validation, or TestFlight binary exists yet. See [issue #7 evidence and Apple gaps](docs/issue-7-evidence.md).
 
 ## Practice contract (issue #5)
 
@@ -84,6 +84,12 @@ See [issue #5 local evidence](docs/issue-5-evidence.md) for executed RED/GREEN o
 3. Authoring/import and core practice session.
 4. Accessible rehearsal UI and future dual-screen layout seam.
 5. Backup/export, privacy audit, and release evidence.
+
+## Data ownership (issue #7 candidate)
+
+Open **Data and privacy** from the deck library to save deck CSV, a selected deck’s card CSV, attempt CSV, or a complete JSON backup through the system file exporter. Choose a JSON file to preview **Merge** or **Replace**; commit requires confirmation and a changed database invalidates the preview. Merge rejects differing records with an existing ID. Replace runs transactionally and restores append-only protection before commit. Restore preserves corrupt attempt records with their raw text and original flags. Public JSON backup and raw attempt CSV fail closed when legacy or unreadable clock records cannot be proven safe to export; local history remains untouched. Complete-history backup for those records is still a blocker, pending an authorized lossless privacy policy.
+
+Backups are versioned checksummed JSON, bounded to 64 MiB and 100,000 records. The checksum detects corruption; it does not authenticate or encrypt a file. Version 1 accepts epoch-number dates in raw records and version 2 preserves lossless reference-date payloads. Keep sensitive exported files in a destination you control. Card CSV is the exchange format below; JSON is the complete restore format for exportable histories. No version-3 normalization or silent history loss is performed. **Delete all my data** clears local records and reclaims SQLite pages; exported copies and device backups remain outside its scope.
 
 ## Card CSV format (documented contract)
 
@@ -112,7 +118,7 @@ Linux can run the Swift package suites and static source policy checks, but cann
 
 ## Distribution
 
-App Store Connect bundle registration succeeded for `com.infinityball.recallrail`. GitHub Actions has these secret names configured: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, and `ASC_TEAM_ID`. A future release workflow must use Xcode 26/iOS 26+, verify signing and iPhone-only metadata, upload to TestFlight, and record the processed build ID before any release claim.
+App Store Connect bundle registration succeeded for `com.infinityball.recallrail`. GitHub Actions has these secret names configured: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, and `ASC_TEAM_ID`. The evidence-gated TestFlight Actions candidate requires successful exact-head Apple CI, pins Xcode 26.0.1/17A400 and SDK26.0, verifies signing and iPhone-only metadata, uploads through Xcode exportArchive, and awaits the exact ASC build in VALID state. This workflow has not been executed; no release success is claimed.
 
 ## License
 
