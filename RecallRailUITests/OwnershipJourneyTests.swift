@@ -6,8 +6,10 @@ final class OwnershipJourneyTests: XCTestCase {
     private func cancelExporter(_ app: XCUIApplication) -> Bool {
         // The host screen also owns a BackButton; only tap picker controls.
         let picker = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
-        for _ in 0..<3 {
-            let cancel = app.buttons.matching(NSPredicate(format: "label ==[c] 'cancel'")).firstMatch
+        // Files exposes Cancel only at Browse, not inside Exports. Walk up
+        // Exports -> Recall Rail -> On My iPhone -> Browse before dismissing.
+        for _ in 0..<5 {
+            let cancel = picker.buttons["Cancel"]
             if cancel.exists { cancel.tap() } else if picker.buttons["BackButton"].exists {
                 picker.buttons["BackButton"].tap()
             } else { break }

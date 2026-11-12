@@ -29,6 +29,13 @@ class OwnershipStructureTests(unittest.TestCase):
         export = (ROOT/'RecallRail/DeckLibrary.swift').read_text().split('func exportCSV')[1]
         self.assertIn('throws -> String', export)
         self.assertNotIn('try?', export)
+    def test_exporter_dismissal_walks_back_to_picker_cancel(self):
+        source = (ROOT/'RecallRailUITests/OwnershipJourneyTests.swift').read_text()
+        dismissal = source.split('private func cancelExporter')[1].split('private func waitSaveEnabled')[0]
+        self.assertIn('for _ in 0..<5', dismissal)
+        self.assertIn('picker.buttons["BackButton"].tap()', dismissal)
+        self.assertIn('picker.buttons["Cancel"]', dismissal)
+        self.assertNotIn('app.buttons.matching(NSPredicate(format: "label ==[c] \'cancel\'"))', dismissal)
     def test_opaque_1024_icon(self):
         data = (ROOT/'RecallRail/Assets.xcassets/AppIcon.appiconset/AppIcon.png').read_bytes()
         self.assertEqual(data[:8], b'\x89PNG\r\n\x1a\n')

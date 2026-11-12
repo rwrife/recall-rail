@@ -1,5 +1,9 @@
 # Issue #7 candidate evidence
 
+## Files picker dismissal correction (2026-11-12)
+
+[Run 42365863142](https://github.com/rwrife/recall-rail/actions/runs/42365863142), attempt 2 at `1f88d297f3103a24e6efdc8ad9d8010eb4cd1229`, passed Linux policy and native package suites (78 RecallRailKit, 75 RecallStore); two UI journeys passed and three ownership journeys failed with six assertions. The exact Apple job log at lines 4293-4298 shows `Exports` with Save disabled. At lines 4388, 4401 and 4414, test teardown tapped Files BackButton three times, but stopped at Browse rather than tapping Cancel; the resulting dismissal failures added noise. The hierarchy at line 4571 contains an actual picker-navigation-bar Cancel button after those Back taps. Candidate now walks at most five levels and taps only the picker bar's Cancel. Python ownership structural suite: 5 tests passed; Docker Swift 6.2 frontend parse: exit 0. Neither proves the picker can save on the simulator or a real device. Save-disabled remains a blocking failure; do not merge or release without passing end-to-end ownership journeys and real signing/TestFlight evidence. Legacy clock-history export policy remains unresolved.
+
 ## Exact-head CI evidence isolation (2026-11-07)
 
 [Run 40857085186](https://github.com/rwrife/recall-rail/actions/runs/40857085186) at `87717a30d0bb8ea66f77aace85a9f70287b2ad69`: Linux package/policy succeeded. Native job ran package suites and iPhone UI tests; all three ownership save journeys failed at `OwnershipJourneyTests.swift:80` because the system Files exporter presented an Exports destination with disabled Save. The ordinary subsequent simulator Release build and metadata verification were skipped by GitHub Actions' implicit `success()` condition. That left a separate built-Release metadata gap, not proof of an app build failure. No signed archive, upload, or processed ASC build was produced.
