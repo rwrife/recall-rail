@@ -1,5 +1,13 @@
 # Issue #7 candidate evidence
 
+## Native URL exporter candidate (2026-11-16)
+
+[Intel run 43923079160](https://github.com/rwrife/recall-rail/actions/runs/43923079160) at `3388f166ca8c859ea21e4b10c545e7fbea1c0ca9` acquired its runner, passed exact Xcode/SDK verification, native package/policy tests and Files warm-up, then reproduced the disabled-Save ownership failures. All three ownership tests failed before the overall 50-minute job limit cancelled the final practice journey. Debug metadata confirmed the bundle, iPhone-only family and both Files-sharing keys; Release build/metadata were skipped on job cancellation. No successful export/restore or full native pass is claimed.
+
+The next candidate replaces SwiftUI's optional in-memory `FileDocument` exporter with a native `UIDocumentPickerViewController(forExporting:asCopy:)` receiving a real, fully protected temporary file with the requested extension and bytes. It retains the actual system Files save destination and unchanged backup/restore semantics; there is no test-only path. Temporary staging is cleared on picker dismissal, before another export, on ownership-screen reopening and local deletion. Imports now attempt the bounded read even when no extra security scope is granted, as app-owned URLs do not need a grant; denied provider reads still throw.
+
+Native boundary tests cover actual staged backup bytes through restore and cleanup, over-limit actual files and unreadable/missing files. Ownership UI tests still require a writable system destination and a saved-file restore; they now stop immediately after recording a destination failure instead of continuing into unrelated taps. CI disables parallel test cloning so the explicit warmed simulator is used serially, and reserves additional overall time for independent build/metadata evidence. These changes remain a candidate until their exact-head Apple run passes.
+
 ## Store submission deferred (2026-11-16)
 
 The user requested fixing and merging draft PRs, then clarified: "Remove the testflight CI build, we're not actually going to submit to the store right now". Removed `.github/workflows/testflight.yml`; the native iPhone CI build, ownership UI tests, privacy gates and metadata verification remain. No workflow invokes the dormant release scripts, and no store submission is authorized by merging this candidate. Issue #7 remains open for its deferred store/release evidence and complete-history privacy-design acceptance.

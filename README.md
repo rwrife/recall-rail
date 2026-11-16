@@ -91,6 +91,8 @@ Open **Data and privacy** from the deck library to save deck CSV, a selected dec
 
 Backups are versioned checksummed JSON, bounded to 64 MiB and 100,000 records. The checksum detects corruption; it does not authenticate or encrypt a file. Version 1 accepts epoch-number dates in raw records and version 2 preserves lossless reference-date payloads. Keep sensitive exported files in a destination you control. Card CSV is the exchange format below; JSON is the complete restore format for exportable histories. No version-3 normalization or silent history loss is performed. **Delete all my data** clears local records and reclaims SQLite pages; exported copies and device backups remain outside its scope.
 
+The native Files exporter copies an app-protected temporary file to the destination you choose. Its staging directory is cleared when the picker closes, before another export, when reopening Data and privacy after an interrupted export, and by local deletion. Importing an app-owned file does not require an additional security-scoped grant; provider permission errors still fail explicitly.
+
 ## Card CSV format (documented contract)
 
 Cards in one selected deck use plain UTF-8 CSV following RFC 4180 quoting:

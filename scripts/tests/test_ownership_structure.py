@@ -8,15 +8,19 @@ class OwnershipStructureTests(unittest.TestCase):
     def test_production_entry_and_error_propagation(self):
         self.assertIn('OwnershipView(library: library)', (ROOT/'RecallRail/DeckListView.swift').read_text())
         source = (ROOT/'RecallRail/OwnershipView.swift').read_text()
-        for token in ['.fileExporter(', '.fileImporter(', 'previewRestore(', '.restore(preview)', 'eraseLocalRecords()', 'Export failed:', 'Operation failed:', 'startAccessingSecurityScopedResource', 'maximumBytes']:
+        for token in ['UIDocumentPickerViewController(forExporting: [file.url], asCopy: true)', '.sheet(item: $exportFile', '.fileImporter(', 'previewRestore(', '.restore(preview)', 'eraseLocalRecords()', 'Export failed:', 'Operation failed:', 'startAccessingSecurityScopedResource', 'maximumBytes']:
             self.assertIn(token, source)
         for ancestor in ['ownership.form', 'ownership.container', 'ownership.view']:
             self.assertNotIn(f'.accessibilityIdentifier("{ancestor}")', source)
         self.assertIn('try library.ownershipExportDecks()', source)
         self.assertIn('ForEach(exportDecks)', source)
-        self.assertIn('FileManager.default.url(for: .documentDirectory', source)
+        self.assertIn('files.url(for: .documentDirectory', source)
         self.assertIn('file.read(upToCount: BackupCodec.maximumBytes + 1)', source)
         self.assertIn('data.count <= BackupCodec.maximumBytes', source)
+        self.assertIn('defer { if scoped { url.stopAccessingSecurityScopedResource() } }', source)
+        self.assertNotIn('guard url.startAccessingSecurityScopedResource()', source)
+        self.assertIn('onDismiss: { perform { try OwnershipExport.removeTemporaryFiles() } }', source)
+        self.assertIn('picker.directoryURL = file.destinationDirectory', source)
         self.assertNotIn('Data(contentsOf: url)', source)
         project = (ROOT/'RecallRail.xcodeproj/project.pbxproj').read_text()
         self.assertEqual(project.count('INFOPLIST_KEY_UIFileSharingEnabled = YES;'), 2)

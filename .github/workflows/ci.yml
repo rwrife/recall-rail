@@ -66,7 +66,7 @@ jobs:
   ios-native:
     name: Pinned iOS 26 build, test, and iPhone metadata
     runs-on: macos-15-intel
-    timeout-minutes: 50
+    timeout-minutes: 75
     env:
       TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
@@ -136,6 +136,7 @@ jobs:
           grep -q '"files_app_launched": true' AppleEvidence/files-warm.json
       - name: Test native iPhone simulator app
         id: ios-test
+        timeout-minutes: 50
         env:
           SIM_UDID: ${{ steps.warm-files.outputs.UDID }}
         run: |
@@ -149,6 +150,7 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination "id=$SIM_UDID" \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             -derivedDataPath DerivedData \
             -resultBundlePath AppleEvidence/PracticeTests.xcresult \
