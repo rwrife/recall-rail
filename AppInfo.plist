@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Xcode 26 (17A400) does not map INFOPLIST_KEY_UIFileSharingEnabled into
+	generated Info.plist files; the built app provably lacked the key, so Files
+	offered no writable app folder. GENERATE_INFOPLIST_FILE=YES merges this file. -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+</dict>
+</plist>

@@ -33,7 +33,7 @@ jobs:
       - name: Install SQLite headers for GRDB
         # GRDB 7 links SQLite through a systemLibrary target; the swift
         # container image does not ship the C headers.
-        run: apt-get update -qq && apt-get install -y -qq libsqlite3-dev python3
+        run: apt-get update -qq && apt-get install -y -qq libsqlite3-dev libssl-dev python3
       - name: Test RecallRailKit
         run: swift test --package-path Packages/RecallRailKit -Xswiftc -warnings-as-errors
       - name: Test RecallStore
@@ -42,6 +42,13 @@ jobs:
         run: bash scripts/check_project_contract.sh
       - name: Test practice workspace structure
         run: python3 scripts/tests/test_practice_workspace.py
+      - name: Test ownership policy and release sanitization
+        run: |
+          python3 scripts/tests/test_zero_network.py
+          python3 scripts/tests/test_ownership_structure.py
+          python3 scripts/tests/test_backup_schema.py
+          python3 scripts/test_release_support.py
+          python3 scripts/probe_files_provider.py --self-test
       - name: Enforce zero-network architecture
         run: bash scripts/check_zero_network.sh
       - name: Enforce native-only implementation
@@ -58,8 +65,8 @@ jobs:
 
   ios-native:
     name: Pinned iOS 26 build, test, and iPhone metadata
-    runs-on: macos-15
-    timeout-minutes: 30
+    runs-on: macos-15-intel
+    timeout-minutes: 75
     env:
       TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
@@ -70,6 +77,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
       - name: Select exact pinned Xcode
+        id: toolchain
         run: |
           set -euo pipefail
           mkdir -p AppleEvidence
@@ -81,8 +89,11 @@ jobs:
           for app in /Applications/Xcode_26.0.1.app /Applications/Xcode_26.0.app /Applications/Xcode.app; do
             [ -d "$app" ] || continue
             developer="$app/Contents/Developer"
-            version=$(DEVELOPER_DIR="$developer" xcodebuild -version | head -1)
-            build=$(DEVELOPER_DIR="$developer" xcodebuild -version | grep -i 'build version' | awk '{print $3}')
+            # Capture once: piping xcodebuild into head can SIGPIPE-crash Xcode 26.
+            version_output=$(DEVELOPER_DIR="$developer" xcodebuild -version)
+            version=${version_output%%$'\n'*}
+            build_line=${version_output##*$'\n'}
+            build=${build_line##* }
             echo "$app: $version ($build)" >> AppleEvidence/xcode-inventory.txt
             if [ "$version" = "$required_version" ] && [ "$build" = "$required_build" ]; then
               selected="$developer"
@@ -91,8 +102,10 @@ jobs:
           done
           [ -n "$selected" ] || { echo "::error::Required $required_version ($required_build) is unavailable"; exit 1; }
           sudo xcode-select -s "$selected"
-          xcodebuild -version
-          [ "$(xcrun --sdk iphoneos --show-sdk-version)" = "26.0" ] || { echo "::error::iPhoneOS SDK 26.0 is unavailable"; exit 1; }
+          xcodebuild -version | tee AppleEvidence/toolchain.txt
+          sdk_version=$(xcrun --sdk iphoneos --show-sdk-version)
+          printf '%s\n' "$sdk_version" | tee -a AppleEvidence/toolchain.txt
+          [ "$sdk_version" = "26.0" ] || { echo "::error::iPhoneOS SDK 26.0 is unavailable"; exit 1; }
           [ "$(git rev-parse HEAD)" = "$TARGET_SHA" ] || { echo "::error::Checkout SHA mismatch"; exit 1; }
       - name: Run native Swift package tests
         # GRDB builds against the macOS SDK's SQLite on Apple runners; no
@@ -105,26 +118,72 @@ jobs:
           bash scripts/check_project_contract.sh
           bash scripts/check_zero_network.sh
           bash scripts/check_native_only.sh
+      - name: Warm Files provider on the exact test destination
+        # Cold FileProvider daemon is the surviving hypothesis for the
+        # disabled-Save save journeys. Warm the SAME device the tests will
+        # use (name-based destinations can pick another clone), and fail
+        # closed so a warm run's result is never ambiguous.
+        id: warm-files
+        run: |
+          set -euo pipefail
+          mkdir -p AppleEvidence
+          python3 scripts/probe_files_provider.py --udid > AppleEvidence/files-resolve.txt
+          udid=$(<AppleEvidence/files-resolve.txt)
+          [[ "$udid" =~ ^[0-9A-Fa-f-]{36}$ ]] || { echo "::error::Simulator UDID resolution failed (see artifact)"; exit 1; }
+          echo "UDID=$udid" >> "$GITHUB_OUTPUT"
+          export RECALL_SIM_UDID="$udid"
+          python3 scripts/probe_files_provider.py --warm | tee AppleEvidence/files-warm.json
+          grep -q '"files_app_launched": true' AppleEvidence/files-warm.json
       - name: Test native iPhone simulator app
+        id: ios-test
+        timeout-minutes: 50
+        env:
+          SIM_UDID: ${{ steps.warm-files.outputs.UDID }}
         run: |
           set -euo pipefail
           mkdir -p AppleEvidence
           git rev-parse HEAD > AppleEvidence/head.txt
-          xcodebuild -version > AppleEvidence/toolchain.txt
-          xcrun --sdk iphoneos --show-sdk-version >> AppleEvidence/toolchain.txt
           xcrun simctl list > AppleEvidence/simulators.txt
+          [ -n "$SIM_UDID" ] || { echo "::error::warm step produced no simulator UDID"; exit 1; }
           xcodebuild -project RecallRail.xcodeproj \
             -scheme RecallRail \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -destination "id=$SIM_UDID" \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             -derivedDataPath DerivedData \
             -resultBundlePath AppleEvidence/PracticeTests.xcresult \
             test 2>&1 | tee AppleEvidence/test.log
+      - name: Diagnose Files provider without exporting user paths
+        if: ${{ !cancelled() && steps.warm-files.outputs.UDID != '' && (steps.warm-files.outcome == 'failure' || steps.ios-test.outcome == 'failure') }}
+        env:
+          RECALL_SIM_UDID: ${{ steps.warm-files.outputs.UDID }}
+        run: |
+          mkdir -p AppleEvidence
+          python3 scripts/probe_files_provider.py > AppleEvidence/files-provider.json 2>/dev/null || true
+          [ -s AppleEvidence/files-provider.json ] || printf '%s\n' '{"probe_failed":true}' > AppleEvidence/files-provider.json
+          python3 scripts/probe_files_provider.py --self-test
+      - name: Preserve built test app metadata even when UI tests fail
+        if: always()
+        run: |
+          app=$(find DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 1 -name RecallRail.app -type d -print -quit 2>/dev/null || true)
+          if [ -n "$app" ] && [ -f "$app/Info.plist" ]; then
+            mkdir -p AppleEvidence
+            cp "$app/Info.plist" AppleEvidence/TestAppInfo.plist
+            for key in CFBundleIdentifier UIDeviceFamily UIFileSharingEnabled LSSupportsOpeningDocumentsInPlace; do
+              printf '%s=' "$key"
+              plutil -extract "$key" raw -o - "$app/Info.plist" 2>/dev/null || echo MISSING
+            done
+          fi
       - name: Build native iPhone simulator app
+        # Files warm-up and UI failures still fail the job, but must not hide
+        # independent build evidence from the verified head and toolchain.
+        id: ios-build
+        if: ${{ !cancelled() && steps.toolchain.outcome == 'success' }}
         run: |
           set -euo pipefail
+          mkdir -p AppleEvidence
           xcodebuild -project RecallRail.xcodeproj \
             -scheme RecallRail \
             -configuration Release \
@@ -134,19 +193,25 @@ jobs:
             -derivedDataPath DerivedData \
             build 2>&1 | tee AppleEvidence/build.log
       - name: Verify built bundle and iPhone-only metadata
+        if: ${{ !cancelled() && steps.ios-build.outcome == 'success' }}
         run: |
           set -euo pipefail
-          app=$(find DerivedData/Build/Products -maxdepth 2 -name RecallRail.app -type d -print -quit)
-          [ -n "$app" ] || { echo "::error::Built RecallRail.app not found"; exit 1; }
+          app="DerivedData/Build/Products/Release-iphonesimulator/RecallRail.app"
+          [ -d "$app" ] || { echo "::error::Built Release RecallRail.app not found"; exit 1; }
           plist="$app/Info.plist"
           bundle_id=$(plutil -extract CFBundleIdentifier raw -o - "$plist")
           [ "$bundle_id" = "com.infinityball.recallrail" ] || { echo "::error::Bundle id is $bundle_id"; exit 1; }
           family=$(plutil -extract UIDeviceFamily json -o - "$plist")
           [ "$family" = '[1]' ] || { echo "::error::UIDeviceFamily is $family, expected [1]"; exit 1; }
+          fshare=$(plutil -extract UIFileSharingEnabled raw -o - "$plist" 2>/dev/null || true)
+          case "$fshare" in 1|true|YES) ;; *) echo "::error::UIFileSharingEnabled is '$fshare'; Files offers no writable app folder"; exit 1 ;; esac
           [ -f "$app/PrivacyInfo.xcprivacy" ] || { echo "::error::PrivacyInfo.xcprivacy is not embedded"; exit 1; }
           echo "Built bundle: $bundle_id; UIDeviceFamily=$family; privacy manifest embedded: PASS"
           cp "$plist" AppleEvidence/BuiltInfo.plist
           echo "Built bundle: $bundle_id; UIDeviceFamily=$family; privacy manifest embedded: PASS" > AppleEvidence/metadata.txt
+      - name: Assert test step passed before completing job
+        run: |
+          [ "${{ steps.ios-test.outcome }}" = "success" ] || { echo "::error::iOS test step failed; see AppleEvidence/test.log"; exit 1; }
       - name: Export simulator test failure details
         if: always()
         run: |
@@ -154,6 +219,20 @@ jobs:
             xcrun xcresulttool get test-results summary --path AppleEvidence/PracticeTests.xcresult > AppleEvidence/test-summary.json || true
             xcrun xcresulttool get test-results tests --path AppleEvidence/PracticeTests.xcresult > AppleEvidence/test-cases.json || true
           fi
+      - name: Verify executed simulator runtime
+        if: ${{ !cancelled() && steps.ios-test.outcome != 'skipped' }}
+        run: |
+          python3 - <<'PY'
+          import json
+          contract = json.load(open('toolchain.json'))
+          summary = json.load(open('AppleEvidence/test-summary.json'))
+          configurations = summary['devicesAndConfigurations']
+          assert configurations, 'No executed simulator evidence'
+          expected = contract['iphoneos_sdk'].split('.')[:2]
+          for configuration in configurations:
+              assert configuration['device']['osVersion'].split('.')[:2] == expected, 'Simulator runtime differs from pinned SDK'
+          print('Executed simulator runtime matches pinned iPhoneOS SDK')
+          PY
       - name: Upload exact-head Apple test evidence and failure diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
