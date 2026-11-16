@@ -50,9 +50,10 @@ class OwnershipStructureTests(unittest.TestCase):
         self.assertEqual(dimensions, (1024, 1024, 8, 2, 0, 0, 0))
         self.assertEqual(len(zlib.decompress(compressed)), 1024 * (1 + 1024 * 3))
     def test_release_secret_and_transport_contract(self):
-        workflow = (ROOT/'.github/workflows/testflight.yml').read_text()
-        import re
-        self.assertEqual(set(re.findall(r'secrets\.([A-Z_0-9]+)', workflow)), {'ASC_KEY_ID','ASC_ISSUER_ID','ASC_KEY_P8','ASC_TEAM_ID'})
+        for workflow in (ROOT/'.github/workflows').glob('*.yml'):
+            source = workflow.read_text()
+            self.assertNotIn('testflight_release.sh', source)
+            self.assertNotIn('-exportArchive', source)
         release = (ROOT/'scripts/testflight_release.sh').read_text()
         for token in ['set +x', 'umask 077', 'mktemp -d', '-exportArchive', "'destination':'upload'", "'method':'app-store-connect'", '${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}']:
             self.assertIn(token, release)
@@ -70,7 +71,20 @@ class OwnershipStructureTests(unittest.TestCase):
                       '-destination "id=$SIM_UDID"']:
             self.assertIn(token, workflow)
         self.assertNotIn("-destination 'platform=iOS Simulator,name=iPhone 17'", workflow)
-        self.assertIn("if: ${{ !cancelled() && steps.ios-test.outcome != 'skipped' }}", workflow)
+        toolchain = workflow.split('      - name: Select exact pinned Xcode')[1].split('      - name: Run native Swift package tests')[0]
+        self.assertIn('id: toolchain', toolchain)
+        self.assertIn('tee AppleEvidence/toolchain.txt', toolchain)
+        self.assertIn('tee -a AppleEvidence/toolchain.txt', toolchain)
+        build = workflow.split('      - name: Build native iPhone simulator app')[1].split('      - name: Verify built bundle')[0]
+        self.assertIn('id: ios-build', build)
+        self.assertIn("if: ${{ !cancelled() && steps.toolchain.outcome == 'success' }}", build)
+        self.assertNotIn('steps.ios-test.outcome', build)
+        metadata = workflow.split('      - name: Verify built bundle')[1].split('      - name: Assert test step')[0]
+        self.assertIn("if: ${{ !cancelled() && steps.ios-build.outcome == 'success' }}", metadata)
+        self.assertIn('app="DerivedData/Build/Products/Release-iphonesimulator/RecallRail.app"', metadata)
+        diagnostic = workflow.split('      - name: Diagnose Files provider')[1].split('      - name: Preserve built test')[0]
+        self.assertIn("steps.warm-files.outcome == 'failure'", diagnostic)
+        self.assertIn('RECALL_SIM_UDID: ${{ steps.warm-files.outputs.UDID }}', diagnostic)
         self.assertLess(workflow.index('Build native iPhone simulator app'), workflow.index('Verify built bundle and iPhone-only metadata'))
         self.assertIn('Assert test step passed before completing job', workflow)
 if __name__ == '__main__': unittest.main()

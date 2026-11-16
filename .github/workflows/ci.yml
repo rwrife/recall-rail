@@ -48,6 +48,7 @@ jobs:
           python3 scripts/tests/test_ownership_structure.py
           python3 scripts/tests/test_backup_schema.py
           python3 scripts/test_release_support.py
+          python3 scripts/probe_files_provider.py --self-test
       - name: Enforce zero-network architecture
         run: bash scripts/check_zero_network.sh
       - name: Enforce native-only implementation
@@ -76,6 +77,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
       - name: Select exact pinned Xcode
+        id: toolchain
         run: |
           set -euo pipefail
           mkdir -p AppleEvidence
@@ -100,8 +102,10 @@ jobs:
           done
           [ -n "$selected" ] || { echo "::error::Required $required_version ($required_build) is unavailable"; exit 1; }
           sudo xcode-select -s "$selected"
-          xcodebuild -version
-          [ "$(xcrun --sdk iphoneos --show-sdk-version)" = "26.0" ] || { echo "::error::iPhoneOS SDK 26.0 is unavailable"; exit 1; }
+          xcodebuild -version | tee AppleEvidence/toolchain.txt
+          sdk_version=$(xcrun --sdk iphoneos --show-sdk-version)
+          printf '%s\n' "$sdk_version" | tee -a AppleEvidence/toolchain.txt
+          [ "$sdk_version" = "26.0" ] || { echo "::error::iPhoneOS SDK 26.0 is unavailable"; exit 1; }
           [ "$(git rev-parse HEAD)" = "$TARGET_SHA" ] || { echo "::error::Checkout SHA mismatch"; exit 1; }
       - name: Run native Swift package tests
         # GRDB builds against the macOS SDK's SQLite on Apple runners; no
@@ -138,8 +142,6 @@ jobs:
           set -euo pipefail
           mkdir -p AppleEvidence
           git rev-parse HEAD > AppleEvidence/head.txt
-          xcodebuild -version > AppleEvidence/toolchain.txt
-          xcrun --sdk iphoneos --show-sdk-version >> AppleEvidence/toolchain.txt
           xcrun simctl list > AppleEvidence/simulators.txt
           [ -n "$SIM_UDID" ] || { echo "::error::warm step produced no simulator UDID"; exit 1; }
           xcodebuild -project RecallRail.xcodeproj \
@@ -152,7 +154,9 @@ jobs:
             -resultBundlePath AppleEvidence/PracticeTests.xcresult \
             test 2>&1 | tee AppleEvidence/test.log
       - name: Diagnose Files provider without exporting user paths
-        if: ${{ always() && steps.ios-test.outcome == 'failure' }}
+        if: ${{ !cancelled() && steps.warm-files.outputs.UDID != '' && (steps.warm-files.outcome == 'failure' || steps.ios-test.outcome == 'failure') }}
+        env:
+          RECALL_SIM_UDID: ${{ steps.warm-files.outputs.UDID }}
         run: |
           mkdir -p AppleEvidence
           python3 scripts/probe_files_provider.py > AppleEvidence/files-provider.json 2>/dev/null || true
@@ -171,11 +175,13 @@ jobs:
             done
           fi
       - name: Build native iPhone simulator app
-        # UI picker failure must still fail the job, but should not hide built
-        # bundle/family evidence from the exact same head and toolchain.
-        if: ${{ !cancelled() && steps.ios-test.outcome != 'skipped' }}
+        # Files warm-up and UI failures still fail the job, but must not hide
+        # independent build evidence from the verified head and toolchain.
+        id: ios-build
+        if: ${{ !cancelled() && steps.toolchain.outcome == 'success' }}
         run: |
           set -euo pipefail
+          mkdir -p AppleEvidence
           xcodebuild -project RecallRail.xcodeproj \
             -scheme RecallRail \
             -configuration Release \
@@ -185,11 +191,11 @@ jobs:
             -derivedDataPath DerivedData \
             build 2>&1 | tee AppleEvidence/build.log
       - name: Verify built bundle and iPhone-only metadata
-        if: ${{ !cancelled() && steps.ios-test.outcome != 'skipped' }}
+        if: ${{ !cancelled() && steps.ios-build.outcome == 'success' }}
         run: |
           set -euo pipefail
-          app=$(find DerivedData/Build/Products -maxdepth 2 -name RecallRail.app -type d -print -quit)
-          [ -n "$app" ] || { echo "::error::Built RecallRail.app not found"; exit 1; }
+          app="DerivedData/Build/Products/Release-iphonesimulator/RecallRail.app"
+          [ -d "$app" ] || { echo "::error::Built Release RecallRail.app not found"; exit 1; }
           plist="$app/Info.plist"
           bundle_id=$(plutil -extract CFBundleIdentifier raw -o - "$plist")
           [ "$bundle_id" = "com.infinityball.recallrail" ] || { echo "::error::Bundle id is $bundle_id"; exit 1; }

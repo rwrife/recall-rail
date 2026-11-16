@@ -5,7 +5,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 
 def summarize(apps, app_data):
@@ -13,7 +14,7 @@ def summarize(apps, app_data):
     group = files.get("GroupContainers", {}).get("group.com.apple.FileProvider.LocalStorage")
     if group:
         parsed = urlparse(group)
-        storage = Path(unquote(parsed.path)) / "File Provider Storage" if parsed.scheme == "file" else None
+        storage = Path(url2pathname(parsed.path)) / "File Provider Storage" if parsed.scheme == "file" else None
     else:
         storage = None
     exports = Path(app_data) / "Documents" / "Exports" if app_data else None
@@ -77,13 +78,12 @@ def main(warm=False):
         stage = "parse"
         apps = json.loads(converted)
         stage = "app_container"
-        try:
-            app_data = subprocess.check_output(
-                ["xcrun", "simctl", "get_app_container", udid, "com.infinityball.recallrail", "data"],
-                text=True, stderr=subprocess.DEVNULL, timeout=30,
-            ).strip()
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            app_data = None
+        app_data = subprocess.check_output(
+            ["xcrun", "simctl", "get_app_container", udid, "com.infinityball.recallrail", "data"],
+            text=True, stderr=subprocess.DEVNULL, timeout=30,
+        ).strip()
+        if not app_data:
+            raise ValueError("Empty app container")
         result = summarize(apps, app_data)
         print(json.dumps(result, sort_keys=True))
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, LookupError, ValueError, TypeError, KeyError) as error:
@@ -143,6 +143,23 @@ if __name__ == "__main__":
                     main()
                 assert json.loads(probe.getvalue())["files_app_registered"]
                 assert mock_output.call_args_list[1].args[0] == ["plutil", "-convert", "json", "-o", "-", "-"]
+            for result, error_type in [
+                (subprocess.TimeoutExpired("PRIVATE_PATH_CANARY", 30), "TimeoutExpired"),
+                (subprocess.CalledProcessError(1, "PRIVATE_PATH_CANARY"), "CalledProcessError"),
+                ("", "ValueError"),
+            ]:
+                with patch("subprocess.run"), patch("subprocess.check_output", side_effect=[
+                    b"plist bytes", b'{"com.apple.DocumentsApp":{"GroupContainers":{}}}', result,
+                ]), patch.dict(os.environ, {"RECALL_SIM_UDID": "test-id"}):
+                    with redirect_stdout(io.StringIO()) as failure:
+                        try:
+                            main()
+                            raise AssertionError("container lookup failure must not report a missing directory")
+                        except SystemExit as exit_error:
+                            assert exit_error.code == 1
+                    assert json.loads(failure.getvalue()) == {
+                        "probe_failed_at": "app_container", "error_type": error_type}
+                    assert "PRIVATE_PATH_CANARY" not in failure.getvalue()
             # ponytail: bounded simctl retries; full daemon health only native CI can establish.
         print("Files provider probe self-test: PASS")
     elif sys.argv[1:] == ["--udid"]:

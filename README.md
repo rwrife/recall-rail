@@ -118,7 +118,7 @@ Linux can run the Swift package suites and static source policy checks, but cann
 
 ## Distribution
 
-App Store Connect bundle registration succeeded for `com.infinityball.recallrail`. GitHub Actions has these secret names configured: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, and `ASC_TEAM_ID`. The evidence-gated TestFlight Actions candidate requires successful exact-head Apple CI, pins Xcode 26.0.1/17A400 and SDK26.0, verifies signing and iPhone-only metadata, uploads through Xcode exportArchive, and awaits the exact ASC build in VALID state. This workflow has not been executed; no release success is claimed.
+Store submission is deferred. There is no TestFlight workflow: merging or running CI does not archive, sign, or upload a release. Native iPhone build, test, privacy and metadata checks remain required. Dormant release helper scripts are retained for a future, separately authorized release; they are not invoked by CI. App Store Connect registration and the `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, and `ASC_TEAM_ID` secret names do not establish signing or release evidence. No TestFlight success is claimed.
 
 ## License
 
