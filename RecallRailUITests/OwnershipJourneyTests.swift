@@ -3,6 +3,16 @@ import XCTest
 /// Uses the production navigation and system file exporter/importer; no test-only restore seam.
 @MainActor
 final class OwnershipJourneyTests: XCTestCase {
+    private func waitForExporterDismissal(_ app: XCUIApplication, seconds: TimeInterval) -> Bool {
+        let picker = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if !picker.exists && !app.buttons["Save"].exists && app.buttons["ownership.backup"].isHittable { return true }
+            usleep(200_000)
+        }
+        return false
+    }
+
     private func cancelExporter(_ app: XCUIApplication) -> Bool {
         // The host screen also owns a BackButton; only tap picker controls.
         let picker = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
@@ -13,12 +23,11 @@ final class OwnershipJourneyTests: XCTestCase {
             if cancel.exists { cancel.tap() } else if picker.buttons["BackButton"].exists {
                 picker.buttons["BackButton"].tap()
             } else { break }
-            let deadline = Date().addingTimeInterval(3)
-            while Date() < deadline {
-                if !app.buttons["Save"].exists && app.buttons["ownership.backup"].isHittable { return true }
-                usleep(200_000)
-            }
+            if waitForExporterDismissal(app, seconds: 3) { return true }
         }
+        // Remote picker controls can disappear before its host sheet finishes
+        // dismissing. Missing controls alone are not a completed cancellation.
+        if waitForExporterDismissal(app, seconds: 10) { return true }
         XCTFail("System document exporter could not be dismissed: \(app.debugDescription)")
         return false
     }

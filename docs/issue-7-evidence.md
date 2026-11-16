@@ -1,5 +1,11 @@
 # Issue #7 candidate evidence
 
+## Pinned-runtime result and cancellation synchronization (2026-11-16)
+
+[Run 43945434596](https://github.com/rwrife/recall-rail/actions/runs/43945434596), head `b59387872a6a36bf0b4e2f18ac9af91ba71d9740`, passed Linux/native package-policy checks, all 17 native app tests, compact accessibility, practice UI, Release build and iPhone-only/privacy metadata. Result-bundle runtime verification passed against SDK 26.0. All three ownership tests reached enabled Save controls but failed in the cancellation helper before the backup save/delete/import/restore section. Export/restore acceptance is therefore still unproven.
+
+The cancellation log shows remote controls disappearing after Back; the helper then stopped once neither Cancel nor Back existed, immediately after its three-second wait. It now also waits a bounded ten seconds for the actual terminal state: picker and Save absent, production backup button hittable. The assertion is retained; an empty modal does not count as dismissal. Exact-head CI and the PR evidence determine acceptance, not this synchronization candidate.
+
 ## Runtime-selection correction and rejected exporter experiment (2026-11-16)
 
 [Run 43932971736](https://github.com/rwrife/recall-rail/actions/runs/43932971736), head `13e4ece63f6b3d152c3469f07e69cb221ef53d41`, completed native Debug/Release builds and iPhone-only/privacy metadata checks. Native packages passed; app tests passed 17/17; practice UI passed. The result bundle records 18 passed tests, 4 failed tests (three ownership journeys and compact accessibility, nine assertions), zero skipped. Provider diagnostics reported registered Files/local storage, writable storage and an existing app Exports folder. The UIKit real-file exporter did not establish a writable destination; its hierarchy was an empty remote sheet, not proof of the earlier disabled-Save signature. The speculative exporter replacement is reverted. The independently tested bounded app-owned-file import correction is retained.
