@@ -43,11 +43,12 @@ def _simctl_json(args, timeout, attempts=3):
 
 def resolve_udid():
     listing = _simctl_json(["list", "devices", "available", "-j"], 60)
-    for devices in listing["devices"].values():
-        for device in devices:
-            if device.get("name") == "iPhone 17":
-                return device["udid"]
-    raise LookupError("iPhone 17 unavailable")
+    contract = json.loads((Path(__file__).resolve().parents[1] / "toolchain.json").read_text())
+    runtime = "com.apple.CoreSimulator.SimRuntime.iOS-" + contract["iphoneos_sdk"].replace(".", "-")
+    for device in listing["devices"].get(runtime, []):
+        if device.get("name") == "iPhone 17":
+            return device["udid"]
+    raise LookupError("iPhone 17 unavailable for pinned runtime")
 
 
 def main(warm=False):
@@ -105,9 +106,25 @@ if __name__ == "__main__":
             assert result["app_exports_directory_exists"]
             assert not summarize({}, None)["local_storage_group_registered"]
             from unittest.mock import patch
+            contract = json.loads((Path(__file__).resolve().parents[1] / "toolchain.json").read_text())
+            runtime = "com.apple.CoreSimulator.SimRuntime.iOS-" + contract["iphoneos_sdk"].replace(".", "-")
+            mixed = {"devices": {
+                "com.apple.CoreSimulator.SimRuntime.iOS-99-0": [{"name": "iPhone 17", "udid": "wrong-runtime"}],
+                runtime: [{"name": "iPhone 17", "udid": "test-id"}],
+            }}
+            with patch("subprocess.check_output", return_value=json.dumps(mixed).encode()):
+                assert resolve_udid() == "test-id", "simulator must match the pinned SDK runtime"
+            with patch("subprocess.check_output", return_value=json.dumps({"devices": {
+                "com.apple.CoreSimulator.SimRuntime.iOS-99-0": [{"name": "iPhone 17", "udid": "wrong-runtime"}],
+            }}).encode()):
+                try:
+                    resolve_udid()
+                    raise AssertionError("missing pinned runtime must fail closed")
+                except LookupError:
+                    pass
             with patch("subprocess.check_output", side_effect=[
                 subprocess.TimeoutExpired("simctl", 60),
-                b'{"devices":{"runtime":[{"name":"iPhone 17","udid":"test-id"}]}}',
+                json.dumps({"devices": {runtime: [{"name": "iPhone 17", "udid": "test-id"}]}}).encode(),
             ]) as mock_list:
                 assert resolve_udid() == "test-id"
                 assert mock_list.call_count == 2

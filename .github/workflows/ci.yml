@@ -219,6 +219,20 @@ jobs:
             xcrun xcresulttool get test-results summary --path AppleEvidence/PracticeTests.xcresult > AppleEvidence/test-summary.json || true
             xcrun xcresulttool get test-results tests --path AppleEvidence/PracticeTests.xcresult > AppleEvidence/test-cases.json || true
           fi
+      - name: Verify executed simulator runtime
+        if: ${{ !cancelled() && steps.ios-test.outcome != 'skipped' }}
+        run: |
+          python3 - <<'PY'
+          import json
+          contract = json.load(open('toolchain.json'))
+          summary = json.load(open('AppleEvidence/test-summary.json'))
+          configurations = summary['devicesAndConfigurations']
+          assert configurations, 'No executed simulator evidence'
+          expected = contract['iphoneos_sdk'].split('.')[:2]
+          for configuration in configurations:
+              assert configuration['device']['osVersion'].split('.')[:2] == expected, 'Simulator runtime differs from pinned SDK'
+          print('Executed simulator runtime matches pinned iPhoneOS SDK')
+          PY
       - name: Upload exact-head Apple test evidence and failure diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

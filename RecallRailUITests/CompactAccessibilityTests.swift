@@ -5,33 +5,37 @@ import UIKit
 final class CompactAccessibilityTests: XCTestCase {
     private func tap(_ app: XCUIApplication, _ id: String) {
         let button = app.buttons[id]
-        XCTAssertTrue(button.waitForExistence(timeout: 5), id)
-        // Keep drags inside the content viewport. Window-level gestures can
-        // open system chrome and interrupt practice on landscape iPhones.
-        let scroll = app.scrollViews.firstMatch
-        for _ in 0..<8 where !button.isHittable {
-            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
-                .press(forDuration: 0.05, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)))
-        }
-        for _ in 0..<8 where !button.isHittable {
-            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
-                .press(forDuration: 0.05, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)))
-        }
-        // AX may call a button hittable even when its center is under the
-        // navigation bar (AX5 put Again at y=52 while the bar ended at y=168).
-        // Scroll down until its tap point is inside the visible content viewport.
-        let barBottom = app.navigationBars.firstMatch.frame.maxY
-        for _ in 0..<8 where button.exists && button.frame.midY <= barBottom + 8 {
-            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
-                .press(forDuration: 0.05, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)))
-        }
-        guard button.exists, button.isHittable, button.frame.midY > barBottom + 8 else {
-            XCTFail("Cannot reach \(id) outside navigation bar. \(app.debugDescription)")
+        guard button.waitForExistence(timeout: 5) else {
+            XCTFail("Missing \(id)")
             return
         }
-        XCTAssertGreaterThanOrEqual(button.frame.height, 44, id)
-        XCTAssertGreaterThanOrEqual(button.frame.width, 44, id)
-        button.tap()
+        let scroll = app.scrollViews.firstMatch
+        for _ in 0..<16 {
+            let viewport = scroll.frame.intersection(app.windows.firstMatch.frame)
+            let top = max(viewport.minY, app.navigationBars.firstMatch.frame.maxY) + 8
+            let bottom = viewport.maxY - 8
+            guard !viewport.isNull, bottom > top else {
+                XCTFail("No visible practice viewport")
+                return
+            }
+            let frame = button.frame
+            if button.isHittable && frame.midY > top && frame.midY < bottom {
+                XCTAssertGreaterThanOrEqual(frame.height, 44, id)
+                XCTAssertGreaterThanOrEqual(frame.width, 44, id)
+                button.tap()
+                return
+            }
+            // AX can report offscreen controls as hittable. Use both viewport
+            // edges, and keep drags below navigation and above system chrome.
+            let down = frame.midY < (top + bottom) / 2
+            let startY = top + (bottom - top) * (down ? 0.25 : 0.75)
+            let endY = top + (bottom - top) * (down ? 0.75 : 0.25)
+            let origin = scroll.coordinate(withNormalizedOffset: .zero)
+            let start = origin.withOffset(CGVector(dx: viewport.midX - scroll.frame.minX, dy: startY - scroll.frame.minY))
+            let end = origin.withOffset(CGVector(dx: viewport.midX - scroll.frame.minX, dy: endY - scroll.frame.minY))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        XCTFail("Cannot reach \(id) inside content viewport. \(app.debugDescription)")
     }
 
     func testAXLargeTypePortraitLandscapeRevealGradeUndoAndResume() {

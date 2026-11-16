@@ -1,5 +1,13 @@
 # Issue #7 candidate evidence
 
+## Runtime-selection correction and rejected exporter experiment (2026-11-16)
+
+[Run 43932971736](https://github.com/rwrife/recall-rail/actions/runs/43932971736), head `13e4ece63f6b3d152c3469f07e69cb221ef53d41`, completed native Debug/Release builds and iPhone-only/privacy metadata checks. Native packages passed; app tests passed 17/17; practice UI passed. The result bundle records 18 passed tests, 4 failed tests (three ownership journeys and compact accessibility, nine assertions), zero skipped. Provider diagnostics reported registered Files/local storage, writable storage and an existing app Exports folder. The UIKit real-file exporter did not establish a writable destination; its hierarchy was an empty remote sheet, not proof of the earlier disabled-Save signature. The speculative exporter replacement is reverted. The independently tested bounded app-owned-file import correction is retained.
+
+The actual device in that result bundle was iPhone 17 **iOS 26.1 (23B86)** despite the pinned Xcode 26.0.1/SDK 26.0. The resolver incorrectly selected the first matching name across all runtime dictionaries. Inventory also contained iOS 26.0 (26.0.1/23A8464). The resolver now selects only the runtime matching `toolchain.json`, fails closed if absent, and CI verifies the executed result-bundle runtime. Mixed-runtime/missing-runtime regression tests were observed failing before the fix.
+
+Compact accessibility's failed reveal control had center below the 402-point landscape window (frame y=414.3), while the test only corrected navigation-bar overlap. Its gesture helper now checks both viewport edges before tapping, retains 44-point target assertions and scrolls inside the visible viewport. No production practice behavior or acceptance test is skipped. A fresh exact-head native run remains required; no merge or successful export/restore is inferred from this correction.
+
 ## Native URL exporter candidate (2026-11-16)
 
 [Intel run 43923079160](https://github.com/rwrife/recall-rail/actions/runs/43923079160) at `3388f166ca8c859ea21e4b10c545e7fbea1c0ca9` acquired its runner, passed exact Xcode/SDK verification, native package/policy tests and Files warm-up, then reproduced the disabled-Save ownership failures. All three ownership tests failed before the overall 50-minute job limit cancelled the final practice journey. Debug metadata confirmed the bundle, iPhone-only family and both Files-sharing keys; Release build/metadata were skipped on job cancellation. No successful export/restore or full native pass is claimed.
