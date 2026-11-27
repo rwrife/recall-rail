@@ -36,7 +36,7 @@ final class PracticeModel {
 
     init(repo: RecallRepository, deckID: StableID,
          permission: any MicrophonePermissionRequesting = SystemMicrophonePermission(),
-         monotonicNow: @escaping () -> UInt64 = { DispatchTime.now().uptimeNanoseconds }) {
+         monotonicNow: @escaping () -> UInt64 = { SystemMonotonicClock().nowNanoseconds() }) {
         self.repo = repo
         self.deckID = deckID
         self.permission = permission

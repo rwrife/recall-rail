@@ -1,5 +1,10 @@
 import Foundation
 
+/// Missing provenance means legacy/unknown anchors; it must never be inferred.
+public enum ClockProvenance: String, Codable, Sendable {
+    case appOriginElapsedV1
+}
+
 /// Where a card sits in the Leitner ladder and when it is next due.
 ///
 /// `ScheduleState` is a value snapshot: attempts store their own before/after
@@ -56,6 +61,7 @@ public struct Attempt: Codable, Equatable, Identifiable, Sendable {
     public let timestamp: Date
     /// Effective monotonic start anchor. Practice subtracts only measured
     /// foreground duration from the grade-selection anchor, excluding gaps.
+    public let clockProvenance: ClockProvenance?
     public let monotonicStartNanos: UInt64
     /// Monotonic nanosecond anchor at grade selection (duration freezes then).
     public let monotonicEndNanos: UInt64
@@ -83,6 +89,7 @@ public struct Attempt: Codable, Equatable, Identifiable, Sendable {
         self.cardID = cardID
         self.deckID = deckID
         self.timestamp = timestamp
+        self.clockProvenance = .appOriginElapsedV1
         self.monotonicStartNanos = monotonicStartNanos
         self.monotonicEndNanos = monotonicEndNanos
         let delta = monotonicEndNanos >= monotonicStartNanos
@@ -126,6 +133,7 @@ public struct StudySession: Codable, Equatable, Identifiable, Sendable {
     public let startedAt: Date
     /// Set when the session was interrupted or finished.
     public var endedAt: Date?
+    public let clockProvenance: ClockProvenance?
     public let monotonicStartNanos: UInt64
     /// Monotonic anchor at the most recent durable progress point, used to
     /// resume honest elapsed timing after interruptions.
@@ -156,6 +164,7 @@ public struct StudySession: Codable, Equatable, Identifiable, Sendable {
         self.isRevealed = isRevealed
         self.startedAt = startedAt
         self.endedAt = endedAt
+        self.clockProvenance = .appOriginElapsedV1
         self.monotonicStartNanos = monotonicStartNanos
         self.monotonicCheckpointNanos = monotonicCheckpointNanos
         self.currentCardElapsedNanos = nil

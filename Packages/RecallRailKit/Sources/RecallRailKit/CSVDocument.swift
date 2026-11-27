@@ -1,7 +1,7 @@
 import Foundation
 
 /// Strict UTF-8 CSV syntax with source-line diagnostics. Field values are
-/// preserved exactly; semantic validation belongs to CSVCardImport.
+/// parsed exactly; serialization adds spreadsheet safety escaping.
 public struct CSVDocument: Equatable, Sendable {
     public enum LineEnding: String, Equatable, Sendable {
         case crlf, lf, cr, mixed, none
@@ -118,14 +118,38 @@ public struct CSVDocument: Equatable, Sendable {
         self.lineEnding = kinds == 0 ? .none : (kinds > 1 ? .mixed : (sawLF ? .lf : (sawCR ? .cr : .crlf)))
     }
 
-    /// RFC 4180 quoting and CRLF serialization; whitespace is quoted too.
+    /// RFC 4180 quoting and CRLF serialization; every cell is spreadsheet-safe.
+    /// Quoting alone does not stop formula execution. Dangerous leading characters
+    /// (including after whitespace) receive an apostrophe; literal leading
+    /// apostrophes are doubled so marked card exports can decode without ambiguity.
+    /// Parsing itself never unescapes: external CSV apostrophes remain literal.
     public static func serialize(rows: [[String]], lineEnding: String = "\r\n") -> String {
         guard !rows.isEmpty else { return "" }
         return rows.map { $0.map(escapeField).joined(separator: ",") }
             .joined(separator: lineEnding) + lineEnding
     }
 
+    private static func needsSpreadsheetPrefix(_ field: String) -> Bool {
+        for scalar in field.unicodeScalars {
+            if "=+-@\t\r\n".unicodeScalars.contains(scalar) { return true }
+            if !CharacterSet.whitespacesAndNewlines.contains(scalar) { return false }
+        }
+        return false
+    }
+
+    public static func spreadsheetSafeField(_ field: String) -> String {
+        field.hasPrefix("'") || needsSpreadsheetPrefix(field) ? "'" + field : field
+    }
+
+    // Only the explicitly marked card CSV dialect may call this inverse.
+    static func decodeSpreadsheetField(_ field: String) -> String {
+        guard field.hasPrefix("'") else { return field }
+        let remainder = String(field.dropFirst())
+        return remainder.hasPrefix("'") || needsSpreadsheetPrefix(remainder) ? remainder : field
+    }
+
     public static func escapeField(_ field: String) -> String {
+        let field = spreadsheetSafeField(field)
         let quoted = field.contains(",") || field.contains("\"") || field.contains("\r")
             || field.contains("\n") || field.first == " " || field.last == " "
         return quoted ? "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : field
